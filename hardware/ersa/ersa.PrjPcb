@@ -175,11 +175,323 @@ GenerateClassCluster=0
 DocumentUniqueId=
 
 [GeneratedDocument1]
-DocumentPath=Project Outputs for ersa\Design Rule Check - ersa_board_a.html
+DocumentPath=Project Outputs for ersa\Gerbers\Bill of Materials\Bill of Materials-ersa.csv
 DItemRevisionGUID=
 
 [GeneratedDocument2]
-DocumentPath=Project Outputs for ersa\Design Rule Check - ersa_board_b.html
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files A\ersa_board_a-RoundHoles-NonPlated.TXT
+DItemRevisionGUID=
+
+[GeneratedDocument3]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files B\ersa_board_a-RoundHoles-NonPlated.TXT
+DItemRevisionGUID=
+
+[GeneratedDocument4]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files A\ersa_board_a-RoundHoles-Plated.TXT
+DItemRevisionGUID=
+
+[GeneratedDocument5]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files B\ersa_board_a-RoundHoles-Plated.TXT
+DItemRevisionGUID=
+
+[GeneratedDocument6]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files A\ersa_board_a-SlotHoles-Plated.TXT
+DItemRevisionGUID=
+
+[GeneratedDocument7]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files B\ersa_board_a-SlotHoles-Plated.TXT
+DItemRevisionGUID=
+
+[GeneratedDocument8]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files A\ersa_board_a.DRR
+DItemRevisionGUID=
+
+[GeneratedDocument9]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files B\ersa_board_a.DRR
+DItemRevisionGUID=
+
+[GeneratedDocument10]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.EXTREP
+DItemRevisionGUID=
+
+[GeneratedDocument11]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GBL
+DItemRevisionGUID=
+
+[GeneratedDocument12]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GBO
+DItemRevisionGUID=
+
+[GeneratedDocument13]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GBP
+DItemRevisionGUID=
+
+[GeneratedDocument14]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GBS
+DItemRevisionGUID=
+
+[GeneratedDocument15]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GD1
+DItemRevisionGUID=
+
+[GeneratedDocument16]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GG1
+DItemRevisionGUID=
+
+[GeneratedDocument17]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GKO
+DItemRevisionGUID=
+
+[GeneratedDocument18]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GM1
+DItemRevisionGUID=
+
+[GeneratedDocument19]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GM11
+DItemRevisionGUID=
+
+[GeneratedDocument20]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GM13
+DItemRevisionGUID=
+
+[GeneratedDocument21]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GM15
+DItemRevisionGUID=
+
+[GeneratedDocument22]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GM16
+DItemRevisionGUID=
+
+[GeneratedDocument23]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GPB
+DItemRevisionGUID=
+
+[GeneratedDocument24]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GPT
+DItemRevisionGUID=
+
+[GeneratedDocument25]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GTL
+DItemRevisionGUID=
+
+[GeneratedDocument26]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GTO
+DItemRevisionGUID=
+
+[GeneratedDocument27]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GTP
+DItemRevisionGUID=
+
+[GeneratedDocument28]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.GTS
+DItemRevisionGUID=
+
+[GeneratedDocument29]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files A\ersa_board_a.LDP
+DItemRevisionGUID=
+
+[GeneratedDocument30]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files B\ersa_board_a.LDP
+DItemRevisionGUID=
+
+[GeneratedDocument31]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files A\ersa_board_a.REP
+DItemRevisionGUID=
+
+[GeneratedDocument32]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files B\ersa_board_b-Plated.TXT
+DItemRevisionGUID=
+
+[GeneratedDocument33]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files B\ersa_board_b.DRR
+DItemRevisionGUID=
+
+[GeneratedDocument34]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.EXTREP
+DItemRevisionGUID=
+
+[GeneratedDocument35]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GBL
+DItemRevisionGUID=
+
+[GeneratedDocument36]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GBO
+DItemRevisionGUID=
+
+[GeneratedDocument37]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GBP
+DItemRevisionGUID=
+
+[GeneratedDocument38]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GBS
+DItemRevisionGUID=
+
+[GeneratedDocument39]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GD1
+DItemRevisionGUID=
+
+[GeneratedDocument40]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GG1
+DItemRevisionGUID=
+
+[GeneratedDocument41]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GKO
+DItemRevisionGUID=
+
+[GeneratedDocument42]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GM1
+DItemRevisionGUID=
+
+[GeneratedDocument43]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GM11
+DItemRevisionGUID=
+
+[GeneratedDocument44]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GM13
+DItemRevisionGUID=
+
+[GeneratedDocument45]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GM15
+DItemRevisionGUID=
+
+[GeneratedDocument46]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GM16
+DItemRevisionGUID=
+
+[GeneratedDocument47]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GPB
+DItemRevisionGUID=
+
+[GeneratedDocument48]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GPT
+DItemRevisionGUID=
+
+[GeneratedDocument49]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GTL
+DItemRevisionGUID=
+
+[GeneratedDocument50]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GTO
+DItemRevisionGUID=
+
+[GeneratedDocument51]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GTP
+DItemRevisionGUID=
+
+[GeneratedDocument52]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.GTS
+DItemRevisionGUID=
+
+[GeneratedDocument53]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files B\ersa_board_b.LDP
+DItemRevisionGUID=
+
+[GeneratedDocument54]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files B\ersa_board_b.REP
+DItemRevisionGUID=
+
+[GeneratedDocument55]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files Panel\ersa_panel-RoundHoles-Plated.TXT
+DItemRevisionGUID=
+
+[GeneratedDocument56]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files Panel\ersa_panel-SlotHoles-Plated.TXT
+DItemRevisionGUID=
+
+[GeneratedDocument57]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files Panel\ersa_panel.DRR
+DItemRevisionGUID=
+
+[GeneratedDocument58]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.EXTREP
+DItemRevisionGUID=
+
+[GeneratedDocument59]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GBL
+DItemRevisionGUID=
+
+[GeneratedDocument60]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GBO
+DItemRevisionGUID=
+
+[GeneratedDocument61]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GBP
+DItemRevisionGUID=
+
+[GeneratedDocument62]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GBS
+DItemRevisionGUID=
+
+[GeneratedDocument63]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GD1
+DItemRevisionGUID=
+
+[GeneratedDocument64]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GG1
+DItemRevisionGUID=
+
+[GeneratedDocument65]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GKO
+DItemRevisionGUID=
+
+[GeneratedDocument66]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GM1
+DItemRevisionGUID=
+
+[GeneratedDocument67]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GM11
+DItemRevisionGUID=
+
+[GeneratedDocument68]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GM13
+DItemRevisionGUID=
+
+[GeneratedDocument69]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GM15
+DItemRevisionGUID=
+
+[GeneratedDocument70]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GM16
+DItemRevisionGUID=
+
+[GeneratedDocument71]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GPB
+DItemRevisionGUID=
+
+[GeneratedDocument72]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GPT
+DItemRevisionGUID=
+
+[GeneratedDocument73]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GTL
+DItemRevisionGUID=
+
+[GeneratedDocument74]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GTO
+DItemRevisionGUID=
+
+[GeneratedDocument75]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GTP
+DItemRevisionGUID=
+
+[GeneratedDocument76]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.GTS
+DItemRevisionGUID=
+
+[GeneratedDocument77]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa NC Drill Files Panel\ersa_panel.LDP
+DItemRevisionGUID=
+
+[GeneratedDocument78]
+DocumentPath=Project Outputs for ersa\Gerbers\Ersa Gerber Files Panel\ersa_panel.REP
+DItemRevisionGUID=
+
+[GeneratedDocument79]
+DocumentPath=Project Outputs for ersa\Gerbers\pick and place files A\Pick Place for ersa_board_a.txt
+DItemRevisionGUID=
+
+[GeneratedDocument80]
+DocumentPath=Project Outputs for ersa\Gerbers\pick and place files B\Pick Place for ersa_board_b.txt
 DItemRevisionGUID=
 
 [Configuration1]
