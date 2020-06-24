@@ -67,6 +67,8 @@ uint8_t outVal;
 volatile uint16_t adcValues[7];
 uint16_t dacValue[1];
 char uartMessage[255];
+
+volatile uint32_t printTime = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -133,8 +135,7 @@ int main(void)
 
   HAL_DAC_Init(&hdac1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
-  HAL_TIM_Base_Start(&htim2);
-  //HAL_TIM_Base_Start(&htim6); 
+  HAL_TIM_Base_Start_IT(&htim2);
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adcValues, 7);
   HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dacValue, 1, DAC_ALIGN_12B_R);
 
@@ -150,19 +151,22 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    setPWM(outVal);
-    HAL_Delay(100);
-    outVal++;
-    dacValue[0] = rand();
+    if((HAL_GetTick() - printTime)  > 100){
+      printTime = HAL_GetTick();
+      setPWM(outVal);
+      outVal++;
+      dacValue[0] = rand();
 
-    sprintf(uartMessage, "\033[2J\033[?25l \n OutVal: %d", outVal);
-    for (int i = 0; i < 7; i++){
-      sprintf(uartMessage, "%s\n adc %d: %d", uartMessage, i, adcValues[i]);
+      sprintf(uartMessage, "\033[2J\033[?25l \n OutVal: %d", outVal);
+      sprintf(uartMessage, "%s\n dac: %d", uartMessage, dacValue[0]);
+      for (int i = 0; i < 7; i++){
+        sprintf(uartMessage, "%s\n adc %d: %d", uartMessage, i, adcValues[i]);
+      }
+      sprintf(uartMessage, "%s\r\n", uartMessage);
+
+      //transmit CLI message
+      HAL_UART_Transmit_DMA(&huart1, (uint8_t*) uartMessage, strlen(uartMessage)); 
     }
-    sprintf(uartMessage, "%s\r\n", uartMessage);
-
-    //transmit CLI message
-    HAL_UART_Transmit_DMA(&huart1, (uint8_t*) uartMessage, strlen(uartMessage)); 
   }
   /* USER CODE END 3 */
 }
@@ -361,7 +365,7 @@ static void MX_DAC1_Init(void)
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
   sConfig.DAC_Trigger = DAC_TRIGGER_T2_TRGO;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
-  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
+  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_ENABLE;
   sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
   if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
   {
@@ -395,7 +399,7 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 100; // 984 Might need to increase the counter speed, to get out of audio range
+  htim1.Init.Prescaler = 984;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim1.Init.Period = 255;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -480,7 +484,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 1000;
+  htim2.Init.Period = 1450;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -720,6 +724,13 @@ void readSwitch(){
 // Set PWM output value for OUT LED
 void setPWM(uint8_t val){
   htim1.Instance->CCR4 = val;
+}
+
+// update function for DSP
+void update(){
+  HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_SET);
+  dacValue[0] = rand();
+  HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_RESET);
 }
 
 /* USER CODE END 4 */
