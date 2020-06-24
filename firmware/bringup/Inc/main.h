@@ -54,9 +54,11 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
+
 /* USER CODE BEGIN EFP */
 
 void update(void);
+void triggerHandler(GPIO_PinState);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -74,6 +76,7 @@ void update(void);
 #define HOLD_GPIO_Port GPIOB
 #define TRIGGER_Pin GPIO_PIN_5
 #define TRIGGER_GPIO_Port GPIOB
+#define TRIGGER_EXTI_IRQn EXTI9_5_IRQn
 #define EOC_Pin GPIO_PIN_6
 #define EOC_GPIO_Port GPIOB
 #define HOLD_LED_Pin GPIO_PIN_7
