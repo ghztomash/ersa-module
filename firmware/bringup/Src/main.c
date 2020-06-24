@@ -23,7 +23,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
+#include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -60,6 +63,10 @@ DMA_HandleTypeDef hdma_usart1_tx;
 /* USER CODE BEGIN PV */
 
 volatile GPIO_PinState switchState;
+uint8_t outVal;
+volatile uint16_t adcValues[7];
+uint16_t dacValue[1];
+char uartMessage[255];
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -76,6 +83,7 @@ static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 static void LED_introSequence(void);
 static void readSwitch(void);
+static void setPWM(uint8_t);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -121,7 +129,17 @@ int main(void)
   MX_TIM7_Init();
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
+  dacValue[0] = 0;
+
+  HAL_DAC_Init(&hdac1);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+  HAL_TIM_Base_Start(&htim2);
+  //HAL_TIM_Base_Start(&htim6); 
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adcValues, 7);
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dacValue, 1, DAC_ALIGN_12B_R);
+
   LED_introSequence();
+  outVal = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -132,6 +150,19 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+    setPWM(outVal);
+    HAL_Delay(100);
+    outVal++;
+    dacValue[0] = rand();
+
+    sprintf(uartMessage, "\033[2J\033[?25l \n OutVal: %d", outVal);
+    for (int i = 0; i < 7; i++){
+      sprintf(uartMessage, "%s\n adc %d: %d", uartMessage, i, adcValues[i]);
+    }
+    sprintf(uartMessage, "%s\r\n", uartMessage);
+
+    //transmit CLI message
+    HAL_UART_Transmit_DMA(&huart1, (uint8_t*) uartMessage, strlen(uartMessage)); 
   }
   /* USER CODE END 3 */
 }
@@ -328,9 +359,9 @@ static void MX_DAC1_Init(void)
   /** DAC channel OUT1 config 
   */
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
-  sConfig.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
+  sConfig.DAC_Trigger = DAC_TRIGGER_T2_TRGO;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
-  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_ENABLE;
+  sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
   sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
   if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
   {
@@ -364,9 +395,9 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 0;
+  htim1.Init.Prescaler = 100; // 984 Might need to increase the counter speed, to get out of audio range
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 1000;
+  htim1.Init.Period = 255;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -674,16 +705,23 @@ void LED_introSequence(){
   HAL_Delay(100);
   HAL_GPIO_WritePin(OUT_LED_GPIO_Port, OUT_LED_Pin, GPIO_PIN_RESET);
   HAL_Delay(100);
+  setPWM(255);
 }
 
 void readSwitch(){
   GPIO_PinState t = HAL_GPIO_ReadPin(SW_A_GPIO_Port, SW_A_Pin);
   if(switchState != t){
     switchState = t;
-    if(switchState == GPIO_PIN_SET)
+    if(switchState == GPIO_PIN_RESET)
       HAL_GPIO_TogglePin(CYC_LED_GPIO_Port,CYC_LED_Pin);
   }
 }
+
+// Set PWM output value for OUT LED
+void setPWM(uint8_t val){
+  htim1.Instance->CCR4 = val;
+}
+
 /* USER CODE END 4 */
 
 /**
