@@ -271,7 +271,7 @@ void ADC1_IRQHandler(void)
   /* USER CODE END ADC1_IRQn 0 */
   HAL_ADC_IRQHandler(&hadc1);
   /* USER CODE BEGIN ADC1_IRQn 1 */
-
+  //update();
   /* USER CODE END ADC1_IRQn 1 */
 }
 
@@ -285,7 +285,7 @@ void EXTI9_5_IRQHandler(void)
   /* USER CODE END EXTI9_5_IRQn 0 */
   HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_5);
   /* USER CODE BEGIN EXTI9_5_IRQn 1 */
-  triggerHandler(t);
+  triggerHandler(!t);
   /* USER CODE END EXTI9_5_IRQn 1 */
 }
 
@@ -299,7 +299,7 @@ void TIM2_IRQHandler(void)
   /* USER CODE END TIM2_IRQn 0 */
   HAL_TIM_IRQHandler(&htim2);
   /* USER CODE BEGIN TIM2_IRQn 1 */
-  update();
+  //update();
   /* USER CODE END TIM2_IRQn 1 */
 }
 

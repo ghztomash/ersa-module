@@ -748,6 +748,10 @@ void triggerHandler(GPIO_PinState state) {
     HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
 }
 
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+  update();
+}
+
 /* USER CODE END 4 */
 
 /**
