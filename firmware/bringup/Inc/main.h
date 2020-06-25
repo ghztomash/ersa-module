@@ -59,6 +59,7 @@ void Error_Handler(void);
 
 void update(void);
 void triggerHandler(GPIO_PinState);
+void holdHandler(GPIO_PinState);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -74,6 +75,7 @@ void triggerHandler(GPIO_PinState);
 #define SW_A_GPIO_Port GPIOB
 #define HOLD_Pin GPIO_PIN_4
 #define HOLD_GPIO_Port GPIOB
+#define HOLD_EXTI_IRQn EXTI4_IRQn
 #define TRIGGER_Pin GPIO_PIN_5
 #define TRIGGER_GPIO_Port GPIOB
 #define TRIGGER_EXTI_IRQn EXTI9_5_IRQn

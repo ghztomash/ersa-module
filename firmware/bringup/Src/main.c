@@ -676,17 +676,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(SW_A_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : HOLD_Pin */
-  GPIO_InitStruct.Pin = HOLD_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(HOLD_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : TRIGGER_Pin */
-  GPIO_InitStruct.Pin = TRIGGER_Pin;
+  /*Configure GPIO pins : HOLD_Pin TRIGGER_Pin */
+  GPIO_InitStruct.Pin = HOLD_Pin|TRIGGER_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(TRIGGER_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : EOC_Pin HOLD_LED_Pin */
   GPIO_InitStruct.Pin = EOC_Pin|HOLD_LED_Pin;
@@ -696,6 +690,9 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI4_IRQn, 3, 0);
+  HAL_NVIC_EnableIRQ(EXTI4_IRQn);
+
   HAL_NVIC_SetPriority(EXTI9_5_IRQn, 3, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
@@ -748,8 +745,13 @@ void triggerHandler(GPIO_PinState state) {
     HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
 }
 
+void holdHandler(GPIO_PinState state) {
+    HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
+}
+
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
   update();
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dacValue, 1, DAC_ALIGN_12B_R);
 }
 
 /* USER CODE END 4 */
