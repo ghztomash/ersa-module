@@ -63,7 +63,9 @@ DMA_HandleTypeDef hdma_usart1_tx;
 /* USER CODE BEGIN PV */
 
 volatile GPIO_PinState switchState;
-uint8_t outVal;
+volatile GPIO_PinState triggerState;
+volatile GPIO_PinState holdState;
+uint8_t outLedVal;
 volatile uint16_t adcValues[7];
 uint16_t dacValue[1];
 char uartMessage[255];
@@ -140,7 +142,7 @@ int main(void)
   HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dacValue, 1, DAC_ALIGN_12B_R);
 
   LED_introSequence();
-  outVal = 0;
+  outLedVal = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -153,16 +155,20 @@ int main(void)
     /* USER CODE BEGIN 3 */
     if((HAL_GetTick() - printTime)  > 100){
       printTime = HAL_GetTick();
-      setPWM(outVal);
-      outVal++;
+      setPWM(outLedVal);
+      outLedVal++;
       dacValue[0] = rand();
 
-      sprintf(uartMessage, "\033[2J\033[?25l \n OutVal: %d", outVal);
-      sprintf(uartMessage, "%s\n dac: %d", uartMessage, dacValue[0]);
+      sprintf(uartMessage, "\033[?6h \033[H"); // [2J clear entire screen
+      sprintf(uartMessage, "%s\n\033[K OutVal: %d", uartMessage, outLedVal); // [2J clear entire screen
+      sprintf(uartMessage, "%s\n\033[K dac: %d", uartMessage, dacValue[0]);
+      sprintf(uartMessage, "%s\n trigger: %d", uartMessage, triggerState);
+      sprintf(uartMessage, "%s\n hold: %d", uartMessage, holdState);
+      sprintf(uartMessage, "%s\n switch: %d", uartMessage, switchState);
       for (int i = 0; i < 7; i++){
-        sprintf(uartMessage, "%s\n adc %d: %d", uartMessage, i, adcValues[i]);
+        sprintf(uartMessage, "%s\n\033[K adc %d: %d", uartMessage, i, adcValues[i]);
       }
-      sprintf(uartMessage, "%s\r\n", uartMessage);
+      sprintf(uartMessage, "%s\n", uartMessage);
 
       //transmit CLI message
       HAL_UART_Transmit_DMA(&huart1, (uint8_t*) uartMessage, strlen(uartMessage)); 
@@ -742,11 +748,13 @@ void update(){
 
 
 void triggerHandler(GPIO_PinState state) {
-    HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
+  triggerState = state;
+  HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
 }
 
 void holdHandler(GPIO_PinState state) {
-    HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
+  holdState = state;
+  HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
