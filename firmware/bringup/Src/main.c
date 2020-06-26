@@ -36,7 +36,11 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define log(M, ...) sprintf(uartMessage,"[LOG] (%s:%d) - " M "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
+                      HAL_UART_Transmit(&huart1, (uint8_t*) uartMessage, strlen(uartMessage), HAL_MAX_DELAY);  
 
+#define print(M, ...) sprintf(uartMessage,"" M "", ##__VA_ARGS__); \
+                      HAL_UART_Transmit(&huart1, (uint8_t*) uartMessage, strlen(uartMessage), HAL_MAX_DELAY);  
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -158,20 +162,23 @@ int main(void)
       setPWM(outLedVal);
       outLedVal++;
       dacValue[0] = rand();
-
-      sprintf(uartMessage, "\033[?6h \033[H"); // [2J clear entire screen
-      sprintf(uartMessage, "%s\n\033[K OutVal: %d", uartMessage, outLedVal); // [2J clear entire screen
-      sprintf(uartMessage, "%s\n\033[K dac: %d", uartMessage, dacValue[0]);
-      sprintf(uartMessage, "%s\n trigger: %d", uartMessage, triggerState);
-      sprintf(uartMessage, "%s\n hold: %d", uartMessage, holdState);
-      sprintf(uartMessage, "%s\n switch: %d", uartMessage, switchState);
+      
+      print("\033[?6h \033[H"); // [2J clear entire screen
+      print("\n\033[K OutVal: %d", outLedVal); // [2J clear entire screen
+      print("\n\033[K dac: %d", dacValue[0]);
+      print("\n trigger: %d", triggerState);
+      print("\n hold: %d", holdState);
+      print("\n switch: %d", switchState);
       for (int i = 0; i < 7; i++){
-        sprintf(uartMessage, "%s\n\033[K adc %d: %d", uartMessage, i, adcValues[i]);
+        print("\n\033[K adc %d: %d", i, adcValues[i]);
       }
-      sprintf(uartMessage, "%s\n", uartMessage);
 
       //transmit CLI message
-      HAL_UART_Transmit_DMA(&huart1, (uint8_t*) uartMessage, strlen(uartMessage)); 
+      //HAL_UART_Transmit_DMA(&huart1, (uint8_t*) uartMessage, strlen(uartMessage));
+
+      //print("Hello World!\n");
+      //print("How does this work?\n");
+      //log("Hello World");
     }
   }
   /* USER CODE END 3 */
