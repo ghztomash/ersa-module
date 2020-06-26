@@ -84,7 +84,7 @@ void holdHandler(GPIO_PinState);
 #define HOLD_LED_Pin GPIO_PIN_7
 #define HOLD_LED_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
-
+#define VERSION 1
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

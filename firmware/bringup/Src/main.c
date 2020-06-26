@@ -36,11 +36,18 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define log(M, ...) sprintf(uartMessage,"[LOG] (%s:%d) - " M "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
-                      HAL_UART_Transmit(&huart1, (uint8_t*) uartMessage, strlen(uartMessage), HAL_MAX_DELAY);  
+#define log(M, ...)                                                                   \
+  sprintf(uartMessage, "[LOG] (%s:%d) - " M "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
+  HAL_UART_Transmit(&huart1, (uint8_t *)uartMessage, strlen(uartMessage), HAL_MAX_DELAY);
 
-#define print(M, ...) sprintf(uartMessage,"" M "", ##__VA_ARGS__); \
-                      HAL_UART_Transmit(&huart1, (uint8_t*) uartMessage, strlen(uartMessage), HAL_MAX_DELAY);  
+#define printcl(M, ...)                               \
+  sprintf(uartMessage, "\033[K" M "", ##__VA_ARGS__); \
+  HAL_UART_Transmit(&huart1, (uint8_t *)uartMessage, strlen(uartMessage), HAL_MAX_DELAY);
+
+#define print(M, ...)                           \
+  sprintf(uartMessage, "" M "", ##__VA_ARGS__); \
+  HAL_UART_Transmit(&huart1, (uint8_t *)uartMessage, strlen(uartMessage), HAL_MAX_DELAY);
+#define DRAWCSV 0
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -75,6 +82,17 @@ uint16_t dacValue[1];
 char uartMessage[255];
 
 volatile uint32_t printTime = 0;
+
+// Callibration Defines
+const int ADC_RESOLUTION = 12;
+int SAMPLES = 50; // 5000
+
+int MAXADC;                   // maximum possible reading from ADC
+float VREF = 3.3;             // ADC reference voltage (= power supply)
+float VINPUT = 1.65;          // ADC input voltage from Normalized Jack
+int EXPECTED;                 // expected ADC reading
+int adcCalibration[12] = {0}; // calibration table;
+int adcOffset[12] = {0};      // offset table;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -92,6 +110,7 @@ static void MX_USART1_UART_Init(void);
 static void LED_introSequence(void);
 static void readSwitch(void);
 static void setPWM(uint8_t);
+static void moveCursor(int, int);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -108,7 +127,6 @@ int main(void)
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
-  
 
   /* MCU Configuration--------------------------------------------------------*/
 
@@ -138,12 +156,14 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   dacValue[0] = 0;
+  MAXADC = (1 << ADC_RESOLUTION) - 1;  // maximum possible reading from ADC
+  EXPECTED = MAXADC * (VINPUT / VREF); // expected ADC reading
 
   HAL_DAC_Init(&hdac1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
   HAL_TIM_Base_Start_IT(&htim2);
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adcValues, 7);
-  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dacValue, 1, DAC_ALIGN_12B_R);
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adcValues, 7);
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)dacValue, 1, DAC_ALIGN_12B_R);
 
   LED_introSequence();
   outLedVal = 0;
@@ -157,20 +177,161 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    if((HAL_GetTick() - printTime)  > 100){
+
+    // ADC statistics
+
+    if ((HAL_GetTick() - printTime) > 100)
+    {
       printTime = HAL_GetTick();
       setPWM(outLedVal);
       outLedVal++;
-      
-      print("\033[?6h \033[H"); // [2J clear entire screen
-      print("\n\033[K OutVal: %d", outLedVal); // [2J clear entire screen
-      print("\n\033[K dac: %d", dacValue[0]);
-      print("\n trigger: %d", triggerState);
-      print("\n hold: %d", holdState);
-      print("\n switch: %d", switchState);
-      for (int i = 0; i < 7; i++){
-        print("\n\033[K adc %d: %d", i, adcValues[i]);
+
+      print("\033[?6h \033[H");        // [2J clear entire screen
+      printcl("LED: %d\n", outLedVal); // [2J clear entire screen
+      printcl("DAC: %d\n", dacValue[0]);
+      print("TRIG: %d\n", triggerState);
+      print("HOLD: %d\n", holdState);
+      print("CYCLE: %d\n", switchState);
+
+      int tab = 3;
+      moveCursor(7, tab);
+      if (!DRAWCSV)
+      {
+        print("PIN");
+        moveCursor(7, tab += 8);
+        print("ADC");
+        moveCursor(7, tab += 8);
+        print("ADC V");
+        moveCursor(7, tab += 8);
+        print("VIN");
+        moveCursor(7, tab += 8);
+        print("VAR");
+        moveCursor(7, tab += 8);
+        print("STD");
+        moveCursor(7, tab += 8);
+        print("AVG");
+        moveCursor(7, tab += 8);
+        print("PPN");
+        moveCursor(7, tab += 8);
+        print("OFF");
       }
+      else
+      {
+        moveCursor(7, tab += 8);
+        print("PIN, ");
+        moveCursor(7, tab += 8);
+        print("ADC, ");
+        moveCursor(7, tab += 8);
+        print("VAR, ");
+        moveCursor(7, tab += 8);
+        print("STD, ");
+        moveCursor(7, tab += 8);
+        print("AVG, ");
+        moveCursor(7, tab += 8);
+        print("PPN");
+      }
+
+      float maxVariance = 0;
+      float maxSTD = 0;
+      int maxPPN = 0;
+      float avrVariance = 0;
+      float avrSTD = 0;
+      int avrPPN = 0;
+
+      for (int i = 0; i < 7; i++)
+      {
+        long datSum = 0; // reset our accumulated sum of input values to zero
+        int sMax = 0;
+        int sMin = MAXADC;
+        long n;                                     // count of how many readings so far
+        double x, mean, delta, m2, variance, stdev; // to calculate standard deviation
+
+        n = 0;    // have not made any ADC readings yet
+        mean = 0; // start off with running mean at zero
+        m2 = 0;
+
+        tab = 3;
+        moveCursor(8 + i, tab);
+
+        for (int j = 0; j < SAMPLES; j++)
+        {
+          x = adcValues[i] - adcCalibration[i]; // callibration offset
+          datSum += x;
+          if (x > sMax)
+            sMax = x;
+          if (x < sMin)
+            sMin = x;
+          n++;
+          delta = x - mean;
+          mean += delta / n;
+          m2 += (delta * (x - mean));
+        }
+
+        variance = m2 / (n - 1); // (n-1):Sample Variance	(n): Population Variance
+        stdev = sqrt(variance);  // Calculate standard deviation
+        float datAvg = (1.0 * datSum) / n;
+        int ppNoise = sMax - sMin;
+
+        if (ppNoise > maxPPN)
+          maxPPN = ppNoise;
+        if (stdev > maxSTD)
+          maxSTD = stdev;
+        if (variance > maxVariance)
+          maxVariance = variance;
+        avrPPN += ppNoise;
+        avrSTD += stdev;
+        avrVariance += variance;
+
+        int sOffset;
+
+        sOffset = datAvg - EXPECTED;
+
+        adcOffset[i] = sOffset;
+
+        moveCursor(8 + i, tab);
+        printcl("A%d:", i);
+        moveCursor(8 + i, tab += 8);
+        print("%d", adcValues[i]);
+        moveCursor(8 + i, tab += 8);
+        print("%.2f", (adcValues[i] / (float)MAXADC) * 3.3);
+        moveCursor(8 + i, tab += 8);
+        if (i > 2)
+        {
+          print("%.2f", ((adcValues[i] / (float)MAXADC) * 3.3) / -0.33 + 5);
+        }
+        moveCursor(8 + i, tab += 8);
+        print("%.2f", variance);
+        moveCursor(8 + i, tab += 8);
+        print("%.2f", stdev);
+        moveCursor(8 + i, tab += 8);
+        print("%.1f", datAvg);
+        moveCursor(8 + i, tab += 8);
+        print("%d", ppNoise);
+        moveCursor(8 + i, tab += 8);
+        print("%d", sOffset);
+      }
+      // print stats for all ADC pins
+      avrPPN /= 12;
+      avrSTD /= 12.0;
+      avrVariance /= 12.0;
+      tab = 3 + 8 * 3;
+      moveCursor(16, tab);
+      printcl("Avr:");
+      moveCursor(17, tab);
+      printcl("Max:");
+
+      moveCursor(16, tab + 8);
+      print("%.2f", maxVariance);
+      moveCursor(17, tab + 8);
+      print("%.2f", avrVariance);
+      moveCursor(16, tab + 16);
+      print("%.2f", maxSTD);
+      moveCursor(17, tab + 16);
+      print("%.2f", avrSTD);
+      moveCursor(16, tab + 32);
+      print("%d", maxPPN);
+      moveCursor(17, tab + 32);
+      print("%d", avrPPN);
     }
   }
   /* USER CODE END 3 */
@@ -204,8 +365,7 @@ void SystemClock_Config(void)
   }
   /** Initializes the CPU, AHB and APB busses clocks 
   */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
-                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
@@ -215,7 +375,7 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1|RCC_PERIPHCLK_ADC;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1 | RCC_PERIPHCLK_ADC;
   PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK2;
   PeriphClkInit.AdcClockSelection = RCC_ADCCLKSOURCE_PLLSAI1;
   PeriphClkInit.PLLSAI1.PLLSAI1Source = RCC_PLLSOURCE_HSI;
@@ -338,7 +498,6 @@ static void MX_ADC1_Init(void)
   /* USER CODE BEGIN ADC1_Init 2 */
 
   /* USER CODE END ADC1_Init 2 */
-
 }
 
 /**
@@ -379,7 +538,6 @@ static void MX_DAC1_Init(void)
   /* USER CODE BEGIN DAC1_Init 2 */
 
   /* USER CODE END DAC1_Init 2 */
-
 }
 
 /**
@@ -465,7 +623,6 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 2 */
   HAL_TIM_MspPostInit(&htim1);
-
 }
 
 /**
@@ -510,7 +667,6 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
-
 }
 
 /**
@@ -548,7 +704,6 @@ static void MX_TIM6_Init(void)
   /* USER CODE BEGIN TIM6_Init 2 */
 
   /* USER CODE END TIM6_Init 2 */
-
 }
 
 /**
@@ -586,7 +741,6 @@ static void MX_TIM7_Init(void)
   /* USER CODE BEGIN TIM7_Init 2 */
 
   /* USER CODE END TIM7_Init 2 */
-
 }
 
 /**
@@ -621,13 +775,12 @@ static void MX_USART1_UART_Init(void)
   /* USER CODE BEGIN USART1_Init 2 */
 
   /* USER CODE END USART1_Init 2 */
-
 }
 
 /** 
   * Enable DMA controller clock
   */
-static void MX_DMA_Init(void) 
+static void MX_DMA_Init(void)
 {
 
   /* DMA controller clock enable */
@@ -646,7 +799,6 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel5_IRQn);
-
 }
 
 /**
@@ -663,13 +815,13 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, EOC_LED_Pin|CYC_LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, EOC_LED_Pin | CYC_LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, EOC_Pin|HOLD_LED_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, EOC_Pin | HOLD_LED_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : EOC_LED_Pin CYC_LED_Pin */
-  GPIO_InitStruct.Pin = EOC_LED_Pin|CYC_LED_Pin;
+  GPIO_InitStruct.Pin = EOC_LED_Pin | CYC_LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -682,13 +834,13 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(SW_A_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : HOLD_Pin TRIGGER_Pin */
-  GPIO_InitStruct.Pin = HOLD_Pin|TRIGGER_Pin;
+  GPIO_InitStruct.Pin = HOLD_Pin | TRIGGER_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : EOC_Pin HOLD_LED_Pin */
-  GPIO_InitStruct.Pin = EOC_Pin|HOLD_LED_Pin;
+  GPIO_InitStruct.Pin = EOC_Pin | HOLD_LED_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -700,11 +852,11 @@ static void MX_GPIO_Init(void)
 
   HAL_NVIC_SetPriority(EXTI9_5_IRQn, 3, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
-
 }
 
 /* USER CODE BEGIN 4 */
-void LED_introSequence(){
+void LED_introSequence()
+{
   HAL_GPIO_WritePin(CYC_LED_GPIO_Port, CYC_LED_Pin, GPIO_PIN_SET);
   HAL_Delay(100);
   HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_SET);
@@ -724,41 +876,52 @@ void LED_introSequence(){
   setPWM(255);
 }
 
-void readSwitch(){
+void readSwitch()
+{
   GPIO_PinState t = HAL_GPIO_ReadPin(SW_A_GPIO_Port, SW_A_Pin);
-  if(switchState != t){
+  if (switchState != t)
+  {
     switchState = t;
-    if(switchState == GPIO_PIN_RESET)
-      HAL_GPIO_TogglePin(CYC_LED_GPIO_Port,CYC_LED_Pin);
+    if (switchState == GPIO_PIN_RESET)
+      HAL_GPIO_TogglePin(CYC_LED_GPIO_Port, CYC_LED_Pin);
   }
 }
 
 // Set PWM output value for OUT LED
-void setPWM(uint8_t val){
+void setPWM(uint8_t val)
+{
   htim1.Instance->CCR4 = val;
 }
 
 // update function for DSP
-void update(){
+void update()
+{
   HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_SET);
-  dacValue[0] = rand();
+  dacValue[0] = adcValues[3]; //4095; //rand();
   HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_RESET);
 }
 
-
-void triggerHandler(GPIO_PinState state) {
+void triggerHandler(GPIO_PinState state)
+{
   triggerState = state;
   HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
 }
 
-void holdHandler(GPIO_PinState state) {
+void holdHandler(GPIO_PinState state)
+{
   holdState = state;
   HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
 }
 
-void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
+{
   update();
-  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t*)dacValue, 1, DAC_ALIGN_12B_R);
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)dacValue, 1, DAC_ALIGN_12B_R);
+}
+
+void moveCursor(int l, int c)
+{
+  print("\033[%d;%dH", l, c);
 }
 
 /* USER CODE END 4 */
@@ -775,7 +938,7 @@ void Error_Handler(void)
   /* USER CODE END Error_Handler_Debug */
 }
 
-#ifdef  USE_FULL_ASSERT
+#ifdef USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
   *         where the assert_param error has occurred.
@@ -784,7 +947,7 @@ void Error_Handler(void)
   * @retval None
   */
 void assert_failed(char *file, uint32_t line)
-{ 
+{
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
      tex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
