@@ -161,7 +161,6 @@ int main(void)
       printTime = HAL_GetTick();
       setPWM(outLedVal);
       outLedVal++;
-      dacValue[0] = rand();
       
       print("\033[?6h \033[H"); // [2J clear entire screen
       print("\n\033[K OutVal: %d", outLedVal); // [2J clear entire screen
@@ -172,13 +171,6 @@ int main(void)
       for (int i = 0; i < 7; i++){
         print("\n\033[K adc %d: %d", i, adcValues[i]);
       }
-
-      //transmit CLI message
-      //HAL_UART_Transmit_DMA(&huart1, (uint8_t*) uartMessage, strlen(uartMessage));
-
-      //print("Hello World!\n");
-      //print("How does this work?\n");
-      //log("Hello World");
     }
   }
   /* USER CODE END 3 */
