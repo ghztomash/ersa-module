@@ -85,14 +85,14 @@ volatile uint32_t printTime = 0;
 
 // Callibration Defines
 const int ADC_RESOLUTION = 12;
-int SAMPLES = 50; // 5000
+uint16_t SAMPLES = 500; // 5000
 
-int MAXADC;                   // maximum possible reading from ADC
-float VREF = 3.3;             // ADC reference voltage (= power supply)
-float VINPUT = 1.65;          // ADC input voltage from Normalized Jack
-int EXPECTED;                 // expected ADC reading
-int adcCalibration[12] = {0}; // calibration table;
-int adcOffset[12] = {0};      // offset table;
+uint16_t MAXADC;                   // maximum possible reading from ADC
+float VREF = 3.3;                  // ADC reference voltage (= power supply)
+float VINPUT = 1.65;               // ADC input voltage from Normalized Jack
+uint16_t EXPECTED;                 // expected ADC reading
+uint16_t adcCalibration[12] = {0}; // calibration table;
+uint16_t adcOffset[12] = {0};      // offset table;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -108,9 +108,13 @@ static void MX_TIM7_Init(void);
 static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 static void LED_introSequence(void);
-static void readSwitch(void);
+static GPIO_PinState read_Switch(void);
 static void setPWM(uint8_t);
-static void moveCursor(int, int);
+static void moveCursor(uint8_t, uint8_t);
+
+static uint16_t read_ADC_Raw(ADC_Inputs);
+static float read_ADC_Normalized(ADC_Inputs);
+static float read_ADC_Voltage(ADC_Inputs);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -173,7 +177,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-    readSwitch();
+    read_Switch();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -332,6 +336,8 @@ int main(void)
       print("%d", maxPPN);
       moveCursor(17, tab + 32);
       print("%d", avrPPN);
+
+      print("\n %.2f \t\t %.2f", read_ADC_Voltage(ADC_ATTACK_POT), read_ADC_Voltage(ADC_ATTACK_CV));
     }
   }
   /* USER CODE END 3 */
@@ -863,7 +869,7 @@ void LED_introSequence()
   HAL_Delay(100);
   HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, GPIO_PIN_SET);
   HAL_Delay(100);
-  HAL_GPIO_WritePin(OUT_LED_GPIO_Port, OUT_LED_Pin, GPIO_PIN_SET);
+  setPWM(255);
   HAL_Delay(100);
   HAL_GPIO_WritePin(CYC_LED_GPIO_Port, CYC_LED_Pin, GPIO_PIN_RESET);
   HAL_Delay(100);
@@ -871,12 +877,11 @@ void LED_introSequence()
   HAL_Delay(100);
   HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, GPIO_PIN_RESET);
   HAL_Delay(100);
-  HAL_GPIO_WritePin(OUT_LED_GPIO_Port, OUT_LED_Pin, GPIO_PIN_RESET);
+  setPWM(0);
   HAL_Delay(100);
-  setPWM(255);
 }
 
-void readSwitch()
+GPIO_PinState read_Switch()
 {
   GPIO_PinState t = HAL_GPIO_ReadPin(SW_A_GPIO_Port, SW_A_Pin);
   if (switchState != t)
@@ -885,6 +890,7 @@ void readSwitch()
     if (switchState == GPIO_PIN_RESET)
       HAL_GPIO_TogglePin(CYC_LED_GPIO_Port, CYC_LED_Pin);
   }
+  return t;
 }
 
 // Set PWM output value for OUT LED
@@ -897,31 +903,73 @@ void setPWM(uint8_t val)
 void update()
 {
   HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_SET);
-  dacValue[0] = adcValues[3]; //4095; //rand();
+  dacValue[0] = adcValues[0]; //adcValues[3]; //4095; //rand();
   HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_RESET);
 }
 
+// trigger input callback handler
 void triggerHandler(GPIO_PinState state)
 {
   triggerState = state;
   HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
 }
 
+// hold input callback handler
 void holdHandler(GPIO_PinState state)
 {
   holdState = state;
   HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
 }
 
+// ADC conversion complete callback handler
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
   update();
   HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)dacValue, 1, DAC_ALIGN_12B_R);
 }
 
-void moveCursor(int l, int c)
+void moveCursor(uint8_t l, uint8_t c)
 {
   print("\033[%d;%dH", l, c);
+}
+
+uint16_t read_ADC_Raw(ADC_Inputs pin)
+{
+  if (pin < 0)
+    pin = 0;
+  if (pin > 6)
+    pin = 6;
+
+  if (pin < 3) // potentiometers
+    return adcValues[pin];
+  else // CV
+    return MAXADC - adcValues[pin];
+}
+
+float read_ADC_Normalized(ADC_Inputs pin)
+{
+  if (pin < 0)
+    pin = 0;
+  if (pin > 6)
+    pin = 6;
+
+  if (pin < 3) // potentiometers
+    return (float)adcValues[pin] / MAXADC;
+  else // CV
+    return (float)adcValues[pin] / MAXADC * -2.0 + 1;
+}
+
+float read_ADC_Voltage(ADC_Inputs pin)
+{
+  if (pin < 0)
+    pin = 0;
+  if (pin > 6)
+    pin = 6;
+
+  if (pin < 3) // potentiometers
+    return (float)adcValues[pin] / MAXADC * 3.3;
+  else // CV
+    return ((float)adcValues[pin] / (float)MAXADC * 3.3) / -0.33 + 5;
 }
 
 /* USER CODE END 4 */
