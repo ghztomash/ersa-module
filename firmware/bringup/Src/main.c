@@ -48,6 +48,9 @@
   sprintf(uartMessage, "" M "", ##__VA_ARGS__); \
   HAL_UART_Transmit(&huart1, (uint8_t *)uartMessage, strlen(uartMessage), HAL_MAX_DELAY);
 #define DRAWCSV 0
+
+#define FLASH_USER_START_ADDR ADDR_FLASH_PAGE_16                      /* Start @ of user Flash area */
+#define FLASH_USER_END_ADDR ADDR_FLASH_PAGE_127 + FLASH_PAGE_SIZE - 1 /* End @ of user Flash area */
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -87,12 +90,12 @@ volatile uint32_t printTime = 0;
 const int ADC_RESOLUTION = 12;
 uint16_t SAMPLES = 500; // 5000
 
-uint16_t MAXADC;                   // maximum possible reading from ADC
-float VREF = 3.3;                  // ADC reference voltage (= power supply)
-float VINPUT = 1.65;               // ADC input voltage from Normalized Jack
-uint16_t EXPECTED;                 // expected ADC reading
-uint16_t adcCalibration[12] = {0}; // calibration table;
-uint16_t adcOffset[12] = {0};      // offset table;
+uint16_t MAXADC;                  // maximum possible reading from ADC
+float VREF = 3.3;                 // ADC reference voltage (= power supply)
+float VINPUT = 1.65;              // ADC input voltage from Normalized Jack
+uint16_t EXPECTED;                // expected ADC reading
+uint16_t adcCalibration[7] = {0}; // calibration table;
+uint16_t adcOffset[7] = {0};      // offset table;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -115,6 +118,9 @@ static void moveCursor(uint8_t, uint8_t);
 static uint16_t read_ADC_Raw(ADC_Inputs);
 static float read_ADC_Normalized(ADC_Inputs);
 static float read_ADC_Voltage(ADC_Inputs);
+static void Write_Flash(uint32_t, uint32_t *, uint32_t);
+static uint32_t Read_Flash(uint32_t);
+static uint32_t Get_Page(uint32_t);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -163,6 +169,12 @@ int main(void)
   MAXADC = (1 << ADC_RESOLUTION) - 1;  // maximum possible reading from ADC
   EXPECTED = MAXADC * (VINPUT / VREF); // expected ADC reading
 
+  uint32_t flashData[] = {0x1312, 0xACAB, 0xDEADBEEF};
+
+  //Write_Flash(0x08010000, flashData, 3);
+  //Write_Flash(0x08010008, 0xDEADBEEF);
+  //Write_Flash(0x08010010, 0xACAB);
+
   HAL_DAC_Init(&hdac1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
   HAL_TIM_Base_Start_IT(&htim2);
@@ -190,7 +202,8 @@ int main(void)
       setPWM(outLedVal);
       outLedVal++;
 
-      print("\033[?6h \033[H");        // [2J clear entire screen
+      print("\033[?6h \033[H"); // [2J clear entire screen
+      print("flash: %lx\n", Read_Flash(0x08010000));
       printcl("LED: %d\n", outLedVal); // [2J clear entire screen
       printcl("DAC: %d\n", dacValue[0]);
       print("TRIG: %d\n", triggerState);
@@ -970,6 +983,53 @@ float read_ADC_Voltage(ADC_Inputs pin)
     return (float)adcValues[pin] / MAXADC * 3.3;
   else // CV
     return ((float)adcValues[pin] / (float)MAXADC * 3.3) / -0.33 + 5;
+}
+
+void Write_Flash(uint32_t address, uint32_t *data, uint32_t size)
+{
+  HAL_FLASH_Unlock();
+  __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_OPTVERR | FLASH_FLAG_EOP | FLASH_FLAG_OPERR | FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR | FLASH_FLAG_PGSERR);
+  FLASH_EraseInitTypeDef EraseInitStruct;
+  uint32_t FirstPage = 0, NbOfPages = 0;
+  uint32_t PAGEError = 0;
+  EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
+  EraseInitStruct.Banks = FLASH_BANK_1;
+  EraseInitStruct.Page = Get_Page(address);
+  EraseInitStruct.NbPages = 1;
+  HAL_FLASHEx_Erase(&EraseInitStruct, &PAGEError);
+  for (int i = 0; i < size; i++){
+    HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, address, data[i]);
+    address += 8;
+  }
+  HAL_FLASH_Lock();
+}
+
+uint32_t Read_Flash(uint32_t address)
+{
+  return *(__IO uint32_t *)address;
+}
+
+/**
+  * @brief  Gets the page of a given address
+  * @param  Addr: Address of the FLASH Memory
+  * @retval The page of a given address
+  */
+static uint32_t Get_Page(uint32_t Addr)
+{
+  uint32_t page = 0;
+
+  if (Addr < (FLASH_BASE + FLASH_BANK_SIZE))
+  {
+    /* Bank 1 */
+    page = (Addr - FLASH_BASE) / FLASH_PAGE_SIZE;
+  }
+  else
+  {
+    /* Bank 2 */
+    page = (Addr - (FLASH_BASE + FLASH_BANK_SIZE)) / FLASH_PAGE_SIZE;
+  }
+
+  return page;
 }
 
 /* USER CODE END 4 */
