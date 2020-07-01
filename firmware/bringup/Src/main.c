@@ -36,6 +36,12 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define DRAWCSV 0
+#define FLASH_USER_ADDR 0x08010000 /* Start @ of user Flash area */
+/* USER CODE END PD */
+
+/* Private macro -------------------------------------------------------------*/
+/* USER CODE BEGIN PM */
 #define log(M, ...)                                                                   \
   sprintf(uartMessage, "[LOG] (%s:%d) - " M "\n", __FILE__, __LINE__, ##__VA_ARGS__); \
   HAL_UART_Transmit(&huart1, (uint8_t *)uartMessage, strlen(uartMessage), HAL_MAX_DELAY);
@@ -47,15 +53,6 @@
 #define print(M, ...)                           \
   sprintf(uartMessage, "" M "", ##__VA_ARGS__); \
   HAL_UART_Transmit(&huart1, (uint8_t *)uartMessage, strlen(uartMessage), HAL_MAX_DELAY);
-#define DRAWCSV 0
-
-#define FLASH_USER_START_ADDR ADDR_FLASH_PAGE_16                      /* Start @ of user Flash area */
-#define FLASH_USER_END_ADDR ADDR_FLASH_PAGE_127 + FLASH_PAGE_SIZE - 1 /* End @ of user Flash area */
-/* USER CODE END PD */
-
-/* Private macro -------------------------------------------------------------*/
-/* USER CODE BEGIN PM */
-
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -93,9 +90,10 @@ uint16_t SAMPLES = 500; // 5000
 uint16_t MAXADC;                  // maximum possible reading from ADC
 float VREF = 3.3;                 // ADC reference voltage (= power supply)
 float VINPUT = 1.65;              // ADC input voltage from Normalized Jack
-uint16_t EXPECTED;                // expected ADC reading
-uint16_t adcCalibration[7] = {0}; // calibration table;
-uint16_t adcOffset[7] = {0};      // offset table;
+int16_t EXPECTED;                // expected ADC reading
+int16_t adcCalibration[7] = {0}; // calibration table;
+int16_t dacCalibration = 0;
+int16_t adcOffset[7] = {0};      // offset table;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -121,6 +119,8 @@ static float read_ADC_Voltage(ADC_Inputs);
 static void Write_Flash(uint32_t, uint32_t *, uint32_t);
 static uint32_t Read_Flash(uint32_t);
 static uint32_t Get_Page(uint32_t);
+static void calibrate(void);
+static void load_Calibration(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -171,7 +171,7 @@ int main(void)
 
   uint32_t flashData[] = {0x1312, 0xACAB, 0xDEADBEEF};
 
-  //Write_Flash(0x08010000, flashData, 3);
+  Write_Flash(0x08010000, flashData, 3);
   //Write_Flash(0x08010008, 0xDEADBEEF);
   //Write_Flash(0x08010010, 0xACAB);
 
@@ -990,17 +990,19 @@ void Write_Flash(uint32_t address, uint32_t *data, uint32_t size)
   HAL_FLASH_Unlock();
   __HAL_FLASH_CLEAR_FLAG(FLASH_FLAG_OPTVERR | FLASH_FLAG_EOP | FLASH_FLAG_OPERR | FLASH_FLAG_WRPERR | FLASH_FLAG_PGAERR | FLASH_FLAG_PGSERR);
   FLASH_EraseInitTypeDef EraseInitStruct;
-  uint32_t FirstPage = 0, NbOfPages = 0;
   uint32_t PAGEError = 0;
   EraseInitStruct.TypeErase = FLASH_TYPEERASE_PAGES;
   EraseInitStruct.Banks = FLASH_BANK_1;
   EraseInitStruct.Page = Get_Page(address);
   EraseInitStruct.NbPages = 1;
   HAL_FLASHEx_Erase(&EraseInitStruct, &PAGEError);
-  for (int i = 0; i < size; i++){
+  __disable_irq();
+  for (int i = 0; i < size; i++)
+  {
     HAL_FLASH_Program(FLASH_TYPEPROGRAM_DOUBLEWORD, address, data[i]);
     address += 8;
   }
+  __enable_irq();
   HAL_FLASH_Lock();
 }
 
@@ -1030,6 +1032,31 @@ static uint32_t Get_Page(uint32_t Addr)
   }
 
   return page;
+}
+
+void load_Calibration(void)
+{
+  if (Read_Flash(FLASH_USER_ADDR) == 0xDEAD)
+  {
+    uint32_t address = FLASH_USER_ADDR + 8; 
+    for (int i = 0; i<7; i++){
+      adcCalibration[i] = Read_Flash(address);
+      address += 8;
+    }
+      dacCalibration = Read_Flash(address);
+  } else {
+    log("No Calibration Data");
+  }
+}
+
+void calibrate(void){
+  int32_t flashData[9] ={0};
+  flashData[0] = 0xDEAD;
+  for (int i = 0; i<7; i++){
+      flashData[i+1] = adcCalibration[i];
+    }
+      flashData[8] = dacCalibration;
+  Write_Flash(FLASH_USER_ADDR, flashData, 9);
 }
 
 /* USER CODE END 4 */
