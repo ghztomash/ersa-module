@@ -76,10 +76,11 @@ DMA_HandleTypeDef hdma_usart1_tx;
 volatile GPIO_PinState switchState;
 volatile GPIO_PinState triggerState;
 volatile GPIO_PinState holdState;
-uint8_t outLedVal;
+volatile uint8_t outLedVal;
 volatile uint16_t adcValues[7];
-uint16_t dacValue[1];
-char uartMessage[255];
+volatile uint16_t dacValue[1];
+volatile char uartMessage[255];
+volatile char inString[32];
 
 volatile uint32_t printTime = 0;
 
@@ -87,13 +88,16 @@ volatile uint32_t printTime = 0;
 const int ADC_RESOLUTION = 12;
 uint16_t SAMPLES = 500; // 5000
 
-uint16_t MAXADC;                  // maximum possible reading from ADC
-float VREF = 3.3;                 // ADC reference voltage (= power supply)
-float VINPUT = 1.65;              // ADC input voltage from Normalized Jack
+uint16_t MAXADC;                 // maximum possible reading from ADC
+float VREF = 3.3;                // ADC reference voltage (= power supply)
+float VINPUT = 1.65;             // ADC input voltage from Normalized Jack
 int16_t EXPECTED;                // expected ADC reading
 int16_t adcCalibration[7] = {0}; // calibration table;
 int16_t dacCalibration = 0;
-int16_t adcOffset[7] = {0};      // offset table;
+int16_t adcOffset[7] = {0}; // offset table;
+
+volatile ITStatus UartRXReady = RESET;
+volatile ITStatus UartTXReady = RESET;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -121,6 +125,8 @@ static uint32_t Read_Flash(uint32_t);
 static uint32_t Get_Page(uint32_t);
 static void calibrate(void);
 static void load_Calibration(void);
+static void read_User_Input(void);
+static void process_User_Input(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -170,6 +176,8 @@ int main(void)
   EXPECTED = MAXADC * (VINPUT / VREF); // expected ADC reading
 
   uint32_t flashData[] = {0x1312, 0xACAB, 0xDEADBEEF};
+  inString[0] = '\0';
+  //sprintf(inString, "");
 
   Write_Flash(0x08010000, flashData, 3);
   //Write_Flash(0x08010008, 0xDEADBEEF);
@@ -183,6 +191,8 @@ int main(void)
 
   LED_introSequence();
   outLedVal = 0;
+
+  //read_User_Input();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -196,6 +206,7 @@ int main(void)
 
     // ADC statistics
 
+    /*
     if ((HAL_GetTick() - printTime) > 100)
     {
       printTime = HAL_GetTick();
@@ -352,6 +363,8 @@ int main(void)
 
       print("\n %.2f \t\t %.2f", read_ADC_Voltage(ADC_ATTACK_POT), read_ADC_Voltage(ADC_ATTACK_CV));
     }
+    */
+    read_User_Input();
   }
   /* USER CODE END 3 */
 }
@@ -915,9 +928,9 @@ void setPWM(uint8_t val)
 // update function for DSP
 void update()
 {
-  HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_SET);
+  //HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_SET);
   dacValue[0] = adcValues[0]; //adcValues[3]; //4095; //rand();
-  HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_RESET);
+  //HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_RESET);
 }
 
 // trigger input callback handler
@@ -1038,27 +1051,83 @@ void load_Calibration(void)
 {
   if (Read_Flash(FLASH_USER_ADDR) == 0xDEAD)
   {
-    uint32_t address = FLASH_USER_ADDR + 8; 
-    for (int i = 0; i<7; i++){
+    uint32_t address = FLASH_USER_ADDR + 8;
+    for (int i = 0; i < 7; i++)
+    {
       adcCalibration[i] = Read_Flash(address);
       address += 8;
     }
-      dacCalibration = Read_Flash(address);
-  } else {
+    dacCalibration = Read_Flash(address);
+  }
+  else
+  {
     log("No Calibration Data");
   }
 }
 
-void calibrate(void){
-  int32_t flashData[9] ={0};
+void calibrate(void)
+{
+  int32_t flashData[9] = {0};
   flashData[0] = 0xDEAD;
-  for (int i = 0; i<7; i++){
-      flashData[i+1] = adcCalibration[i];
-    }
-      flashData[8] = dacCalibration;
+  for (int i = 0; i < 7; i++)
+  {
+    flashData[i + 1] = adcCalibration[i];
+  }
+  flashData[8] = dacCalibration;
   Write_Flash(FLASH_USER_ADDR, flashData, 9);
 }
 
+void read_User_Input()
+{
+  volatile char readBuffer[10];
+  log("user input");
+
+  if (HAL_UART_Receive_DMA(&huart1, (uint8_t *)readBuffer, 1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  while (UartRXReady != SET)
+  {
+  }
+  UartRXReady = RESET;
+
+  log("user: %c - 0x%X", readBuffer[0], readBuffer[0]);
+  if (readBuffer[0] == '\n')
+  {
+    //parseCommand();
+    inString[0] = '\0';
+    //sprintf(inString, "");
+    log("CR");
+  }
+  else if (readBuffer[0] == 0x8)
+  {
+    if (strlen(inString) > 0)
+    {
+      inString[strlen(inString) - 1] = '\0';
+    }
+    log("BS");
+  }
+  else if ((readBuffer[0] >= 0x20) && (readBuffer[0] <= 0x126))
+  {
+    sprintf(inString, "%s%c", inString, readBuffer[0]);
+  }
+
+  //moveCursor(20, 10);
+  if (strlen(inString) > 0)
+  {
+    print(" >>> %s\n", inString); // print cl
+  }
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  UartRXReady = SET;
+}
+
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+  UartTXReady = SET;
+}
 /* USER CODE END 4 */
 
 /**
