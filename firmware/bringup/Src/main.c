@@ -207,7 +207,7 @@ int main(void)
 
     // ADC statistics
 
-    /*
+    
     if ((HAL_GetTick() - printTime) > 100)
     {
       printTime = HAL_GetTick();
@@ -364,7 +364,7 @@ int main(void)
 
       print("\n %.2f \t\t %.2f", read_ADC_Voltage(ADC_ATTACK_POT), read_ADC_Voltage(ADC_ATTACK_CV));
     }
-    */
+    
     read_User_Input();
   }
   /* USER CODE END 3 */
