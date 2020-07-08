@@ -81,6 +81,7 @@ volatile uint16_t adcValues[7];
 volatile uint16_t dacValue[1];
 volatile char uartMessage[255];
 volatile char inString[32];
+volatile char uartRXBuffer[10];
 
 volatile uint32_t printTime = 0;
 
@@ -1079,43 +1080,50 @@ void calibrate(void)
 
 void read_User_Input()
 {
-  volatile char readBuffer[10];
-  log("user input");
+  //log("user input");
+  if (UartRXReady != SET)
+  {
+    if (HAL_UART_Receive_DMA(&huart1, (uint8_t *)uartRXBuffer, 1) != HAL_OK)
+    {
+      Error_Handler();
+    }
+  }
+  //while (UartRXReady != SET)
+  //{
+  //}
 
-  if (HAL_UART_Receive_DMA(&huart1, (uint8_t *)readBuffer, 1) != HAL_OK)
+  if (UartRXReady == SET)
   {
-    Error_Handler();
-  }
-  while (UartRXReady != SET)
-  {
-  }
-  UartRXReady = RESET;
+    UartRXReady = RESET;
 
-  log("user: %c - 0x%X", readBuffer[0], readBuffer[0]);
-  if (readBuffer[0] == '\n')
-  {
-    //parseCommand();
-    inString[0] = '\0';
-    //sprintf(inString, "");
-    log("CR");
-  }
-  else if (readBuffer[0] == 0x8)
-  {
+    //log("user: %c - 0x%X", uartRXBuffer[0], uartRXBuffer[0]);
+    if (uartRXBuffer[0] == '\n')
+    {
+      //parseCommand();
+      inString[0] = '\0';
+      //sprintf(inString, "");
+      //log("CR");
+      moveCursor(30, 2);
+      printcl(""); // print cl
+    }
+    else if (uartRXBuffer[0] == 0x8)
+    {
+      if (strlen(inString) > 0)
+      {
+        inString[strlen(inString) - 1] = '\0';
+      }
+      //log("BS");
+    }
+    else if ((uartRXBuffer[0] >= 0x20) && (uartRXBuffer[0] <= 0x126))
+    {
+      sprintf(inString, "%s%c", inString, uartRXBuffer[0]);
+    }
+
     if (strlen(inString) > 0)
     {
-      inString[strlen(inString) - 1] = '\0';
+      moveCursor(30, 2);
+      printcl(">>> %s", inString); // print cl
     }
-    log("BS");
-  }
-  else if ((readBuffer[0] >= 0x20) && (readBuffer[0] <= 0x126))
-  {
-    sprintf(inString, "%s%c", inString, readBuffer[0]);
-  }
-
-  //moveCursor(20, 10);
-  if (strlen(inString) > 0)
-  {
-    print(" >>> %s\n", inString); // print cl
   }
 }
 
