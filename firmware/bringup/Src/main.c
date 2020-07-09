@@ -31,7 +31,19 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+enum CLI_COMMAND
+{
+  CLI_ERR,
+  CLI_REF,
+  CLI_DAC,
+  CLI_CALDAC,
+  CLI_CALADC,
+  CLI_SAVE,
+  CLI_LOAD,
+  CLI_SIZE,
+  CLI_RESET,
+  CLI_HELP
+};
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -79,15 +91,16 @@ volatile GPIO_PinState holdState;
 volatile uint8_t outLedVal;
 volatile uint16_t adcValues[7];
 volatile uint16_t dacValue[1];
-volatile char uartMessage[255];
-volatile char inString[32];
+uint16_t targetDac;
+char uartMessage[255];
+char inString[32];
 volatile char uartRXBuffer[10];
 
 volatile uint32_t printTime = 0;
 
 // Callibration Defines
 const int ADC_RESOLUTION = 12;
-uint16_t SAMPLES = 500; // 5000
+uint16_t SAMPLES = 50; // 5000
 
 uint16_t MAXADC;                 // maximum possible reading from ADC
 float VREF = 3.3;                // ADC reference voltage (= power supply)
@@ -124,10 +137,12 @@ static float read_ADC_Voltage(ADC_Inputs);
 static void Write_Flash(uint32_t, uint32_t *, uint32_t);
 static uint32_t Read_Flash(uint32_t);
 static uint32_t Get_Page(uint32_t);
-static void calibrate(void);
+static void adc_Calibrate(void);
+static void dac_Calibrate(void);
+static void save_Calibration(void);
 static void load_Calibration(void);
 static void read_User_Input(void);
-static void process_User_Input(void);
+static void parse_Command(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -207,7 +222,6 @@ int main(void)
 
     // ADC statistics
 
-    
     if ((HAL_GetTick() - printTime) > 100)
     {
       printTime = HAL_GetTick();
@@ -364,7 +378,7 @@ int main(void)
 
       print("\n %.2f \t\t %.2f", read_ADC_Voltage(ADC_ATTACK_POT), read_ADC_Voltage(ADC_ATTACK_CV));
     }
-    
+
     read_User_Input();
   }
   /* USER CODE END 3 */
@@ -930,7 +944,8 @@ void setPWM(uint8_t val)
 void update()
 {
   //HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_SET);
-  dacValue[0] = adcValues[0]; //adcValues[3]; //4095; //rand();
+  //dacValue[0] = adcValues[0]; //adcValues[3]; //4095; //rand();
+  dacValue[0] = targetDac;
   //HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_RESET);
 }
 
@@ -1055,10 +1070,10 @@ void load_Calibration(void)
     uint32_t address = FLASH_USER_ADDR + 8;
     for (int i = 0; i < 7; i++)
     {
-      adcCalibration[i] = Read_Flash(address);
+      adcCalibration[i] = (int32_t)Read_Flash(address);
       address += 8;
     }
-    dacCalibration = Read_Flash(address);
+    dacCalibration = (int32_t)Read_Flash(address);
   }
   else
   {
@@ -1066,9 +1081,9 @@ void load_Calibration(void)
   }
 }
 
-void calibrate(void)
+void save_Calibration(void)
 {
-  int32_t flashData[9] = {0};
+  uint32_t flashData[9] = {0};
   flashData[0] = 0xDEAD;
   for (int i = 0; i < 7; i++)
   {
@@ -1099,12 +1114,11 @@ void read_User_Input()
     //log("user: %c - 0x%X", uartRXBuffer[0], uartRXBuffer[0]);
     if (uartRXBuffer[0] == '\n')
     {
-      //parseCommand();
-      inString[0] = '\0';
-      //sprintf(inString, "");
-      //log("CR");
       moveCursor(30, 2);
       printcl(""); // print cl
+
+      parse_Command();
+      inString[0] = '\0';
     }
     else if (uartRXBuffer[0] == 0x8)
     {
@@ -1125,6 +1139,120 @@ void read_User_Input()
       printcl(">>> %s", inString); // print cl
     }
   }
+}
+
+void parse_Command()
+{
+  char *pch;
+  pch = strtok(inString, " ");
+  uint8_t command = CLI_ERR;
+  uint8_t arguments = 0;
+  moveCursor(29, 2);
+
+  while (pch != NULL)
+  {
+
+    if (strncmp(pch, "ref", 3) == 0)
+    {
+      printcl(" %s", pch);
+      command = CLI_REF;
+    }
+    else if (strncmp(pch, "dac", 3) == 0)
+    {
+      printcl(" %s", pch);
+      command = CLI_DAC;
+    }
+    else if (strncmp(pch, "caladc", 6) == 0)
+    {
+      printcl(" %s", pch);
+      command = CLI_CALADC;
+    }
+    else if (strncmp(pch, "caldac", 6) == 0)
+    {
+      printcl(" %s", pch);
+      command = CLI_CALDAC;
+    }
+    else if (strncmp(pch, "load", 4) == 0)
+    {
+      printcl(" %s", pch);
+      command = CLI_LOAD;
+    }
+    else if (strncmp(pch, "save", 4) == 0)
+    {
+      printcl(" %s", pch);
+      command = CLI_SAVE;
+    }
+    else if (strncmp(pch, "reset", 5) == 0)
+    {
+      printcl(" %s", pch);
+      command = CLI_RESET;
+      for (int i = 0; i < 7; i++)
+      {
+        adcCalibration[i] = 0;
+      }
+      dacCalibration = 0;
+    }
+    else if (strncmp(pch, "size", 3) == 0)
+    {
+      printcl(" %s", pch);
+      command = CLI_SIZE;
+    }
+    else if (strncmp(pch, "help", 4) == 0)
+    {
+      printcl(" commands: ref {float}, dac {float}, cal, load, save, reset, size {int}, help");
+      command = CLI_HELP;
+    }
+    else
+    {
+      if (arguments == 0)
+        printcl(" command not found");
+    }
+
+    if (arguments == 1)
+    {
+      float arg = atof(pch);
+
+      switch (command)
+      {
+      case CLI_REF:
+        if (arg > 12.0)
+          arg = 12.0;
+        if (arg < -12.0)
+          arg = -12.0;
+        VINPUT = (arg * -0.33) + 1.65;
+        EXPECTED = MAXADC * (VINPUT / VREF); // expected ADC reading
+        break;
+      case CLI_DAC:
+        if (arg > 1.0)
+          arg = 1.0;
+        if (arg < 0.0)
+          arg = 0.0;
+        targetDac = arg * MAXADC;
+        print(" val: %s arg: %f dac: %d", pch, arg, targetDac);
+        break;
+      case CLI_SIZE:
+        if (arg > 5000.0)
+          arg = 5000.0;
+        if (arg < 1.0)
+          arg = 1.0;
+        SAMPLES = arg;
+        break;
+      default:
+        break;
+      }
+    }
+
+    pch = strtok(NULL, " ");
+    arguments++;
+  }
+}
+
+void adc_Calibrate(){
+
+}
+
+void dac_Calibrate(){
+
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
