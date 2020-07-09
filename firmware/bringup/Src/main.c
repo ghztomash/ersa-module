@@ -37,8 +37,7 @@ enum CLI_COMMAND
   CLI_REF,
   CLI_DAC,
   CLI_VOUT,
-  CLI_CALDAC,
-  CLI_CALADC,
+  CLI_CAL,
   CLI_SAVE,
   CLI_LOAD,
   CLI_SIZE,
@@ -1159,20 +1158,15 @@ void parse_Command()
       printcl(" %s", pch);
       command = CLI_VOUT;
     }
-    else if (strncmp(pch, "caladc", 6) == 0)
+    else if (strncmp(pch, "cal", 3) == 0)
     {
       printcl(" %s", pch);
-      command = CLI_CALADC;
+      command = CLI_CAL;
       // callibrate
       for (int i = 3; i < 7; i++)
       {
         adcCalibration[i] = adcOffset[i];
       }
-    }
-    else if (strncmp(pch, "caldac", 6) == 0)
-    {
-      printcl(" %s", pch);
-      command = CLI_CALDAC;
       dacCalibration = dacValue[0];
     }
     else if (strncmp(pch, "load", 4) == 0)
@@ -1204,7 +1198,7 @@ void parse_Command()
     }
     else if (strncmp(pch, "help", 4) == 0)
     {
-      printcl(" commands: ref {float}, dac {float}, cal, load, save, reset, size {int}, help");
+      printcl(" commands: ref {num}, dac {num}, vout {num}, cal, load, save, reset, size {num}, help");
       command = CLI_HELP;
     }
     else
