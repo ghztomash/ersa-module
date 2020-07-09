@@ -137,8 +137,6 @@ static float read_ADC_Voltage(ADC_Inputs);
 static void Write_Flash(uint32_t, uint32_t *, uint32_t);
 static uint32_t Read_Flash(uint32_t);
 static uint32_t Get_Page(uint32_t);
-static void adc_Calibrate(void);
-static void dac_Calibrate(void);
 static void save_Calibration(void);
 static void load_Calibration(void);
 static void read_User_Input(void);
@@ -191,13 +189,7 @@ int main(void)
   MAXADC = (1 << ADC_RESOLUTION) - 1;  // maximum possible reading from ADC
   EXPECTED = MAXADC * (VINPUT / VREF); // expected ADC reading
 
-  uint32_t flashData[] = {0x1312, 0xACAB, 0xDEADBEEF};
   inString[0] = '\0';
-  //sprintf(inString, "");
-
-  Write_Flash(0x08010000, flashData, 3);
-  //Write_Flash(0x08010008, 0xDEADBEEF);
-  //Write_Flash(0x08010010, 0xACAB);
 
   HAL_DAC_Init(&hdac1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
@@ -208,7 +200,6 @@ int main(void)
   LED_introSequence();
   outLedVal = 0;
 
-  //read_User_Input();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -231,7 +222,7 @@ int main(void)
       print("\033[?6h \033[H"); // [2J clear entire screen
       print("flash: %lx\n", Read_Flash(0x08010000));
       printcl("LED: %d\n", outLedVal); // [2J clear entire screen
-      printcl("DAC: %d\n", dacValue[0]);
+      printcl("DAC: %d \t OFF: %d\n", dacValue[0], dacCalibration);
       print("TRIG: %d\n", triggerState);
       print("HOLD: %d\n", holdState);
       print("CYCLE: %d\n", switchState);
@@ -985,7 +976,7 @@ uint16_t read_ADC_Raw(ADC_Inputs pin)
   if (pin < 3) // potentiometers
     return adcValues[pin];
   else // CV
-    return MAXADC - adcValues[pin];
+    return MAXADC - (adcValues[pin] - adcCalibration[pin]);
 }
 
 float read_ADC_Normalized(ADC_Inputs pin)
@@ -998,7 +989,7 @@ float read_ADC_Normalized(ADC_Inputs pin)
   if (pin < 3) // potentiometers
     return (float)adcValues[pin] / MAXADC;
   else // CV
-    return (float)adcValues[pin] / MAXADC * -2.0 + 1;
+    return (float)(adcValues[pin] - adcCalibration[pin]) / MAXADC * -2.0 + 1;
 }
 
 float read_ADC_Voltage(ADC_Inputs pin)
@@ -1011,7 +1002,7 @@ float read_ADC_Voltage(ADC_Inputs pin)
   if (pin < 3) // potentiometers
     return (float)adcValues[pin] / MAXADC * 3.3;
   else // CV
-    return ((float)adcValues[pin] / (float)MAXADC * 3.3) / -0.33 + 5;
+    return ((float)(adcValues[pin] - adcCalibration[pin]) / (float)MAXADC * 3.3) / -0.33 + 5;
 }
 
 void Write_Flash(uint32_t address, uint32_t *data, uint32_t size)
@@ -1166,21 +1157,29 @@ void parse_Command()
     {
       printcl(" %s", pch);
       command = CLI_CALADC;
+      // callibrate
+      for (int i = 3; i < 7; i++)
+      {
+        adcCalibration[i] = adcOffset[i];
+      }
     }
     else if (strncmp(pch, "caldac", 6) == 0)
     {
       printcl(" %s", pch);
       command = CLI_CALDAC;
+      dacCalibration = dacValue[0];
     }
     else if (strncmp(pch, "load", 4) == 0)
     {
       printcl(" %s", pch);
       command = CLI_LOAD;
+      load_Calibration();
     }
     else if (strncmp(pch, "save", 4) == 0)
     {
       printcl(" %s", pch);
       command = CLI_SAVE;
+      save_Calibration();
     }
     else if (strncmp(pch, "reset", 5) == 0)
     {
@@ -1245,14 +1244,6 @@ void parse_Command()
     pch = strtok(NULL, " ");
     arguments++;
   }
-}
-
-void adc_Calibrate(){
-
-}
-
-void dac_Calibrate(){
-
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
