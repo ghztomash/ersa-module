@@ -36,6 +36,7 @@ enum CLI_COMMAND
   CLI_ERR,
   CLI_REF,
   CLI_DAC,
+  CLI_VOUT,
   CLI_CALDAC,
   CLI_CALADC,
   CLI_SAVE,
@@ -1153,6 +1154,11 @@ void parse_Command()
       printcl(" %s", pch);
       command = CLI_DAC;
     }
+    else if (strncmp(pch, "vout", 4) == 0)
+    {
+      printcl(" %s", pch);
+      command = CLI_VOUT;
+    }
     else if (strncmp(pch, "caladc", 6) == 0)
     {
       printcl(" %s", pch);
@@ -1222,12 +1228,20 @@ void parse_Command()
         EXPECTED = MAXADC * (VINPUT / VREF); // expected ADC reading
         break;
       case CLI_DAC:
-        if (arg > 1.0)
-          arg = 1.0;
+        if (arg > (float)MAXADC)
+          arg = (float)MAXADC;
         if (arg < 0.0)
           arg = 0.0;
-        targetDac = arg * MAXADC;
-        print(" val: %s arg: %f dac: %d", pch, arg, targetDac);
+        targetDac = arg;
+        print(" val: %s", pch);
+        break;
+      case CLI_VOUT:
+        if (arg > 10.0)
+          arg = 10.0;
+        if (arg < 0.0)
+          arg = 0.0;
+        targetDac = (arg / 10.0) * MAXADC;
+        print("arg: %f dac: %d", arg, targetDac);
         break;
       case CLI_SIZE:
         if (arg > 5000.0)
