@@ -350,9 +350,9 @@ int main(void)
       avrVariance /= 12.0;
       tab = 3 + 8 * 3;
       moveCursor(16, tab);
-      printcl("Avr:");
-      moveCursor(17, tab);
       printcl("Max:");
+      moveCursor(17, tab);
+      printcl("Avr:");
 
       moveCursor(16, tab + 8);
       print("%.2f", maxVariance);
@@ -1142,69 +1142,71 @@ void parse_Command()
 
   while (pch != NULL)
   {
-
-    if (strncmp(pch, "ref", 3) == 0)
+    if (arguments == 0)
     {
-      printcl(" %s", pch);
-      command = CLI_REF;
-    }
-    else if (strncmp(pch, "dac", 3) == 0)
-    {
-      printcl(" %s", pch);
-      command = CLI_DAC;
-    }
-    else if (strncmp(pch, "vout", 4) == 0)
-    {
-      printcl(" %s", pch);
-      command = CLI_VOUT;
-    }
-    else if (strncmp(pch, "cal", 3) == 0)
-    {
-      printcl(" %s", pch);
-      command = CLI_CAL;
-      // callibrate
-      for (int i = 3; i < 7; i++)
+      if (strncmp(pch, "ref", 3) == 0)
       {
-        adcCalibration[i] = adcOffset[i];
+        printcl(" %s", pch);
+        command = CLI_REF;
       }
-      dacCalibration = dacValue[0];
-    }
-    else if (strncmp(pch, "load", 4) == 0)
-    {
-      printcl(" %s", pch);
-      command = CLI_LOAD;
-      load_Calibration();
-    }
-    else if (strncmp(pch, "save", 4) == 0)
-    {
-      printcl(" %s", pch);
-      command = CLI_SAVE;
-      save_Calibration();
-    }
-    else if (strncmp(pch, "reset", 5) == 0)
-    {
-      printcl(" %s", pch);
-      command = CLI_RESET;
-      for (int i = 0; i < 7; i++)
+      else if (strncmp(pch, "dac", 3) == 0)
       {
-        adcCalibration[i] = 0;
+        printcl(" %s", pch);
+        command = CLI_DAC;
       }
-      dacCalibration = 0;
-    }
-    else if (strncmp(pch, "size", 3) == 0)
-    {
-      printcl(" %s", pch);
-      command = CLI_SIZE;
-    }
-    else if (strncmp(pch, "help", 4) == 0)
-    {
-      printcl(" commands: ref {num}, dac {num}, vout {num}, cal, load, save, reset, size {num}, help");
-      command = CLI_HELP;
-    }
-    else
-    {
-      if (arguments == 0)
-        printcl(" command not found");
+      else if (strncmp(pch, "vout", 4) == 0)
+      {
+        printcl(" %s", pch);
+        command = CLI_VOUT;
+      }
+      else if (strncmp(pch, "cal", 3) == 0)
+      {
+        printcl(" %s", pch);
+        command = CLI_CAL;
+        // callibrate
+        for (int i = 3; i < 7; i++)
+        {
+          adcCalibration[i] = adcOffset[i];
+        }
+        dacCalibration = dacValue[0];
+      }
+      else if (strncmp(pch, "load", 4) == 0)
+      {
+        printcl(" %s", pch);
+        command = CLI_LOAD;
+        load_Calibration();
+      }
+      else if (strncmp(pch, "save", 4) == 0)
+      {
+        printcl(" %s", pch);
+        command = CLI_SAVE;
+        save_Calibration();
+      }
+      else if (strncmp(pch, "reset", 5) == 0)
+      {
+        printcl(" %s", pch);
+        command = CLI_RESET;
+        for (int i = 0; i < 7; i++)
+        {
+          adcCalibration[i] = 0;
+        }
+        dacCalibration = 0;
+      }
+      else if (strncmp(pch, "size", 3) == 0)
+      {
+        printcl(" %s", pch);
+        command = CLI_SIZE;
+      }
+      else if (strncmp(pch, "help", 4) == 0)
+      {
+        printcl(" commands: ref {num}, dac {num}, vout {num}, cal, load, save, reset, size {num}, help");
+        command = CLI_HELP;
+      }
+      else
+      {
+        if (arguments == 0)
+          printcl(" command not found");
+      }
     }
 
     if (arguments == 1)
@@ -1235,7 +1237,7 @@ void parse_Command()
         if (arg < 0.0)
           arg = 0.0;
         targetDac = (arg / 10.0) * MAXADC;
-        print("arg: %f dac: %d", arg, targetDac);
+        print(" arg: %f dac: %d", arg, targetDac);
         break;
       case CLI_SIZE:
         if (arg > 5000.0)
