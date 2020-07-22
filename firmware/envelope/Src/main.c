@@ -109,8 +109,10 @@ int16_t adcCalibration[7] = {0}; // calibration table;
 int16_t dacCalibration = 0;
 int16_t adcOffset[7] = {0}; // offset table;
 
-float SAMPLERATE = 0;
+uint8_t cycle_state = 0;
 
+float SAMPLERATE = 0;
+const uint32_t TARGET_OFFSET = 255;
 volatile uint8_t running;
 volatile uint32_t attackT;
 volatile uint32_t releaseT;
@@ -221,8 +223,8 @@ int main(void)
   while (1)
   {
     read_Switch();
-    attack_Time(read_ADC_Normalized(ADC_ATTACK_POT) * 1000.0);
-    release_Time(read_ADC_Normalized(ADC_RELEASE_POT) * 1000.0);
+    attack_Time( pow(2.0, read_ADC_Normalized(ADC_ATTACK_POT)*10.0-10.0) * 4000.0);
+    release_Time( pow(2.0, read_ADC_Normalized(ADC_RELEASE_POT)*10.0-10.0) * 4000.0);
 
     if (HAL_GetTick() - EOC_Time > 10)
     {
@@ -230,7 +232,7 @@ int main(void)
       HAL_GPIO_WritePin(EOC_GPIO_Port, EOC_Pin, GPIO_PIN_SET);
     }
 
-    log("dac: %ld\n", targetDac);
+    //log("running: %d dac: %ld\n", running, targetDac);
 
     /* USER CODE END WHILE */
 
@@ -786,7 +788,19 @@ GPIO_PinState read_Switch()
   {
     switchState = t;
     if (switchState == GPIO_PIN_RESET)
-      HAL_GPIO_TogglePin(CYC_LED_GPIO_Port, CYC_LED_Pin);
+    {
+      //HAL_GPIO_TogglePin(CYC_LED_GPIO_Port, CYC_LED_Pin);
+      if (cycle_state)
+      {
+        noteOff();
+      }
+      cycle_state = !cycle_state;
+      HAL_GPIO_WritePin(CYC_LED_GPIO_Port, CYC_LED_Pin, cycle_state);
+      if (cycle_state)
+      {
+        noteOn();
+      }
+    }
   }
   return t;
 }
@@ -803,52 +817,43 @@ void update()
   //HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_SET);
 
   uint32_t yn;
-
-  if (running)
+  if (holdState == RESET)
   {
-    if (yn1 == 0)
+    yn = (yn1 * (uint64_t)a >> 32) + (xn * (uint64_t)(UINT32_MAX - a) >> 32);
+    yn1 = yn;
+    //bp++ = (sample * (uint64_t)yn) >> 31;
+    targetDac = yn >> 19;
+  }
+
+  if (running == 1)
+  {
+    if ((targetDac <= TARGET_OFFSET) && (yn >= xn))
     {
       running = 0;
       //log("Reached MIN\n");
-      //HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, GPIO_PIN_SET);
-      //HAL_GPIO_WritePin(EOC_GPIO_Port, EOC_Pin, GPIO_PIN_RESET);
-      //EOC_Time = HAL_GetTick();
-      //return;
-    }
-    else if (yn1 >= INT32_MAX - 255)
-    {
-      running = 0;
-      //log("Reached MAX\n");
-      //HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, GPIO_PIN_SET);
-      //HAL_GPIO_WritePin(EOC_GPIO_Port, EOC_Pin, GPIO_PIN_RESET);
-      //EOC_Time = HAL_GetTick();
-      //return;
-    }
-  }
-
-  yn = (yn1 * (uint64_t)a >> 32) + (xn * (uint64_t)(UINT32_MAX - a) >> 32);
-  yn1 = yn;
-  //bp++ = (sample * (uint64_t)yn) >> 31;
-  targetDac = yn >> 19;
-
-  if (yn == xn)
-  {
-    running = 0;
-  }
-
-  //if (running)
-  //{
-  if (yn > xn)
-  {
-    //log("Falling")
-    if (targetDac <= 255)
-    {
       HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, GPIO_PIN_SET);
       HAL_GPIO_WritePin(EOC_GPIO_Port, EOC_Pin, GPIO_PIN_RESET);
       EOC_Time = HAL_GetTick();
+      if (cycle_state)
+      {
+        noteOn();
+      }
+      //return;
+    }
+    else if ((targetDac >= MAXADC - TARGET_OFFSET) && (yn <= xn))
+    {
+      running = 0;
+      //log("Reached MAX\n");
+      //if (cycle_state)
+      {
+        noteOff();
+      }
+      //HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, GPIO_PIN_SET);
+      //HAL_GPIO_WritePin(EOC_GPIO_Port, EOC_Pin, GPIO_PIN_RESET);
+      //EOC_Time = HAL_GetTick();
+      //return;
     }
   }
-  //}
 
   dacValue[0] = targetDac;
   //HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_RESET);
@@ -864,7 +869,7 @@ void triggerHandler(GPIO_PinState state)
   }
   else
   {
-    noteOff();
+    //noteOff();
   }
   //HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
 }
@@ -873,7 +878,7 @@ void triggerHandler(GPIO_PinState state)
 void holdHandler(GPIO_PinState state)
 {
   holdState = state;
-  HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
+  HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, state);
 }
 
 // ADC conversion complete callback handler
