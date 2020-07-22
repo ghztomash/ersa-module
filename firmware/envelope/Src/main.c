@@ -93,8 +93,6 @@ volatile uint16_t adcValues[7];
 volatile uint16_t dacValue[1];
 uint16_t targetDac;
 char uartMessage[255];
-char inString[32];
-volatile char uartRXBuffer[10];
 
 volatile uint32_t printTime = 0;
 
@@ -112,8 +110,12 @@ int16_t adcOffset[7] = {0}; // offset table;
 
 float SAMPLERATE = 0;
 
-volatile ITStatus UartRXReady = RESET;
-volatile ITStatus UartTXReady = RESET;
+volatile uint8_t running;
+volatile uint32_t attackT;
+volatile uint32_t releaseT;
+volatile uint32_t a;
+volatile uint32_t xn;
+volatile uint32_t yn1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -141,8 +143,10 @@ static uint32_t Read_Flash(uint32_t);
 static uint32_t Get_Page(uint32_t);
 static void save_Calibration(void);
 static void load_Calibration(void);
-static void read_User_Input(void);
-static void parse_Command(void);
+static void attack_Time(float);
+static void release_Time(float);
+static void noteOn();
+static void noteOff();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -191,9 +195,7 @@ int main(void)
   MAXADC = (1 << ADC_RESOLUTION) - 1;  // maximum possible reading from ADC
   EXPECTED = MAXADC * (VINPUT / VREF); // expected ADC reading
 
-  inString[0] = '\0';
-
-  SAMPLERATE = HAL_RCC_GetHCLKFreq() / (float) htim2.Init.Period;
+  SAMPLERATE = HAL_RCC_GetHCLKFreq() / (float)htim2.Init.Period;
 
   HAL_DAC_Init(&hdac1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
@@ -204,6 +206,13 @@ int main(void)
   LED_introSequence();
   outLedVal = 0;
 
+  a = 0;
+  xn = 0;
+  yn1 = 0;
+  attack_Time(0.0);
+  release_Time(0.0);
+  running = 0;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -211,171 +220,13 @@ int main(void)
   while (1)
   {
     read_Switch();
+    attack_Time(read_ADC_Normalized(ADC_ATTACK_POT) * 1000.0);
+    release_Time(read_ADC_Normalized(ADC_RELEASE_POT) * 1000.0);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
-    // ADC statistics
-
-    if ((HAL_GetTick() - printTime) > 100)
-    {
-      printTime = HAL_GetTick();
-      setPWM(outLedVal);
-      outLedVal++;
-
-      print("\033[?6h \033[H"); // [2J clear entire screen
-      print("flash: %lx\n", Read_Flash(0x08010000));
-      printcl("LED: %d\n", outLedVal); // [2J clear entire screen
-      printcl("DAC: %d \t OFF: %d \t", dacValue[0], dacCalibration);
-      print("RATE: %f\n", SAMPLERATE);
-      print("TRIG: %d\n", triggerState);
-      print("HOLD: %d\n", holdState);
-      print("CYCLE: %d\n", switchState);
-
-      int tab = 3;
-      moveCursor(7, tab);
-      if (!DRAWCSV)
-      {
-        print("PIN");
-        moveCursor(7, tab += 8);
-        print("ADC");
-        moveCursor(7, tab += 8);
-        print("ADC V");
-        moveCursor(7, tab += 8);
-        print("VIN");
-        moveCursor(7, tab += 8);
-        print("VAR");
-        moveCursor(7, tab += 8);
-        print("STD");
-        moveCursor(7, tab += 8);
-        print("AVG");
-        moveCursor(7, tab += 8);
-        print("PPN");
-        moveCursor(7, tab += 8);
-        print("OFF");
-      }
-      else
-      {
-        moveCursor(7, tab += 8);
-        print("PIN, ");
-        moveCursor(7, tab += 8);
-        print("ADC, ");
-        moveCursor(7, tab += 8);
-        print("VAR, ");
-        moveCursor(7, tab += 8);
-        print("STD, ");
-        moveCursor(7, tab += 8);
-        print("AVG, ");
-        moveCursor(7, tab += 8);
-        print("PPN");
-      }
-
-      float maxVariance = 0;
-      float maxSTD = 0;
-      int maxPPN = 0;
-      float avrVariance = 0;
-      float avrSTD = 0;
-      int avrPPN = 0;
-
-      for (int i = 0; i < 7; i++)
-      {
-        long datSum = 0; // reset our accumulated sum of input values to zero
-        int sMax = 0;
-        int sMin = MAXADC;
-        long n;                                     // count of how many readings so far
-        double x, mean, delta, m2, variance, stdev; // to calculate standard deviation
-
-        n = 0;    // have not made any ADC readings yet
-        mean = 0; // start off with running mean at zero
-        m2 = 0;
-
-        tab = 3;
-        moveCursor(8 + i, tab);
-
-        for (int j = 0; j < SAMPLES; j++)
-        {
-          x = adcValues[i] - adcCalibration[i]; // callibration offset
-          datSum += x;
-          if (x > sMax)
-            sMax = x;
-          if (x < sMin)
-            sMin = x;
-          n++;
-          delta = x - mean;
-          mean += delta / n;
-          m2 += (delta * (x - mean));
-        }
-
-        variance = m2 / (n - 1); // (n-1):Sample Variance	(n): Population Variance
-        stdev = sqrt(variance);  // Calculate standard deviation
-        float datAvg = (1.0 * datSum) / n;
-        int ppNoise = sMax - sMin;
-
-        if (ppNoise > maxPPN)
-          maxPPN = ppNoise;
-        if (stdev > maxSTD)
-          maxSTD = stdev;
-        if (variance > maxVariance)
-          maxVariance = variance;
-        avrPPN += ppNoise;
-        avrSTD += stdev;
-        avrVariance += variance;
-
-        int sOffset;
-
-        sOffset = datAvg - EXPECTED;
-
-        adcOffset[i] = sOffset;
-
-        moveCursor(8 + i, tab);
-        printcl("A%d:", i);
-        moveCursor(8 + i, tab += 8);
-        print("%d", adcValues[i]);
-        moveCursor(8 + i, tab += 8);
-        print("%.2f", (adcValues[i] / (float)MAXADC) * 3.3);
-        moveCursor(8 + i, tab += 8);
-        if (i > 2)
-        {
-          print("%.2f", ((adcValues[i] / (float)MAXADC) * 3.3) / -0.33 + 5);
-        }
-        moveCursor(8 + i, tab += 8);
-        print("%.2f", variance);
-        moveCursor(8 + i, tab += 8);
-        print("%.2f", stdev);
-        moveCursor(8 + i, tab += 8);
-        print("%.1f", datAvg);
-        moveCursor(8 + i, tab += 8);
-        print("%d", ppNoise);
-        moveCursor(8 + i, tab += 8);
-        print("%d", sOffset);
-      }
-      // print stats for all ADC pins
-      avrPPN /= 12;
-      avrSTD /= 12.0;
-      avrVariance /= 12.0;
-      tab = 3 + 8 * 3;
-      moveCursor(16, tab);
-      printcl("Max:");
-      moveCursor(17, tab);
-      printcl("Avr:");
-
-      moveCursor(16, tab + 8);
-      print("%.2f", maxVariance);
-      moveCursor(17, tab + 8);
-      print("%.2f", avrVariance);
-      moveCursor(16, tab + 16);
-      print("%.2f", maxSTD);
-      moveCursor(17, tab + 16);
-      print("%.2f", avrSTD);
-      moveCursor(16, tab + 32);
-      print("%d", maxPPN);
-      moveCursor(17, tab + 32);
-      print("%d", avrPPN);
-
-      print("\n %.2f \t\t %.2f", read_ADC_Voltage(ADC_ATTACK_POT), read_ADC_Voltage(ADC_ATTACK_CV));
-    }
-
-    read_User_Input();
+    outLedVal = targetDac >> 4;
+    setPWM(outLedVal);
   }
   /* USER CODE END 3 */
 }
@@ -940,7 +791,33 @@ void setPWM(uint8_t val)
 void update()
 {
   //HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_SET);
-  //dacValue[0] = adcValues[0]; //adcValues[3]; //4095; //rand();
+
+  uint32_t yn;
+
+  if (!running)
+  {
+    if (yn1 == 0)
+    {
+      running = 0;
+      //return;
+    }
+    else if (yn1 == INT32_MAX)
+    {
+      running = 0;
+      //return;
+    }
+  }
+
+  yn = (yn1 * (uint64_t)a >> 32) + (xn * (uint64_t)(UINT32_MAX - a) >> 32);
+  yn1 = yn;
+  //bp++ = (sample * (uint64_t)yn) >> 31;
+  targetDac = yn >> 19;
+
+  if (yn == xn)
+  {
+    running = 0;
+  }
+
   dacValue[0] = targetDac;
   //HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_RESET);
 }
@@ -949,6 +826,14 @@ void update()
 void triggerHandler(GPIO_PinState state)
 {
   triggerState = state;
+  if (state == SET)
+  {
+    noteOn();
+  }
+  else
+  {
+    noteOff();
+  }
   HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
 }
 
@@ -964,11 +849,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
   update();
   HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)dacValue, 1, DAC_ALIGN_12B_R);
-}
-
-void moveCursor(uint8_t l, uint8_t c)
-{
-  print("\033[%d;%dH", l, c);
 }
 
 uint16_t read_ADC_Raw(ADC_Inputs pin)
@@ -1089,187 +969,36 @@ void save_Calibration(void)
   Write_Flash(FLASH_USER_ADDR, flashData, 9);
 }
 
-void read_User_Input()
+void attack_Time(float millis)
 {
-  //log("user input");
-  if (UartRXReady != SET)
-  {
-    if (HAL_UART_Receive_DMA(&huart1, (uint8_t *)uartRXBuffer, 1) != HAL_OK)
-    {
-      Error_Handler();
-    }
-  }
-  //while (UartRXReady != SET)
-  //{
-  //}
-
-  if (UartRXReady == SET)
-  {
-    UartRXReady = RESET;
-
-    //log("user: %c - 0x%X", uartRXBuffer[0], uartRXBuffer[0]);
-    if (uartRXBuffer[0] == '\n')
-    {
-      moveCursor(30, 2);
-      printcl(""); // print cl
-
-      parse_Command();
-      inString[0] = '\0';
-    }
-    else if (uartRXBuffer[0] == 0x8)
-    {
-      if (strlen(inString) > 0)
-      {
-        inString[strlen(inString) - 1] = '\0';
-      }
-      //log("BS");
-    }
-    else if ((uartRXBuffer[0] >= 0x20) && (uartRXBuffer[0] <= 0x126))
-    {
-      sprintf(inString, "%s%c", inString, uartRXBuffer[0]);
-    }
-
-    if (strlen(inString) > 0)
-    {
-      moveCursor(30, 2);
-      printcl(">>> %s", inString); // print cl
-    }
-  }
+  millis /= 1000.0;
+  float tau = millis * (1.0 - 2.0 / 3.0);
+  attackT = tau / (tau + 1.0 / SAMPLERATE) * UINT32_MAX;
+  log("Attack: %f\n", millis);
 }
 
-void parse_Command()
+void release_Time(float millis)
 {
-  char *pch;
-  pch = strtok(inString, " ");
-  uint8_t command = CLI_ERR;
-  uint8_t arguments = 0;
-  moveCursor(29, 2);
-
-  while (pch != NULL)
-  {
-    if (arguments == 0)
-    {
-      if (strncmp(pch, "ref", 3) == 0)
-      {
-        printcl(" %s", pch);
-        command = CLI_REF;
-      }
-      else if (strncmp(pch, "dac", 3) == 0)
-      {
-        printcl(" %s", pch);
-        command = CLI_DAC;
-      }
-      else if (strncmp(pch, "vout", 4) == 0)
-      {
-        printcl(" %s", pch);
-        command = CLI_VOUT;
-      }
-      else if (strncmp(pch, "cal", 3) == 0)
-      {
-        printcl(" %s", pch);
-        command = CLI_CAL;
-        // callibrate
-        for (int i = 3; i < 7; i++)
-        {
-          adcCalibration[i] = adcOffset[i];
-        }
-        dacCalibration = dacValue[0];
-      }
-      else if (strncmp(pch, "load", 4) == 0)
-      {
-        printcl(" %s", pch);
-        command = CLI_LOAD;
-        load_Calibration();
-      }
-      else if (strncmp(pch, "save", 4) == 0)
-      {
-        printcl(" %s", pch);
-        command = CLI_SAVE;
-        save_Calibration();
-      }
-      else if (strncmp(pch, "reset", 5) == 0)
-      {
-        printcl(" %s", pch);
-        command = CLI_RESET;
-        for (int i = 0; i < 7; i++)
-        {
-          adcCalibration[i] = 0;
-        }
-        dacCalibration = 0;
-      }
-      else if (strncmp(pch, "size", 3) == 0)
-      {
-        printcl(" %s", pch);
-        command = CLI_SIZE;
-      }
-      else if (strncmp(pch, "help", 4) == 0)
-      {
-        printcl(" commands: ref {num}, dac {num}, vout {num}, cal, load, save, reset, size {num}, help");
-        command = CLI_HELP;
-      }
-      else
-      {
-        if (arguments == 0)
-          printcl(" command not found");
-      }
-    }
-
-    if (arguments == 1)
-    {
-      float arg = atof(pch);
-
-      switch (command)
-      {
-      case CLI_REF:
-        if (arg > 12.0)
-          arg = 12.0;
-        if (arg < -12.0)
-          arg = -12.0;
-        VINPUT = (arg * -0.33) + 1.65;
-        EXPECTED = MAXADC * (VINPUT / VREF); // expected ADC reading
-        break;
-      case CLI_DAC:
-        if (arg > (float)MAXADC)
-          arg = (float)MAXADC;
-        if (arg < 0.0)
-          arg = 0.0;
-        targetDac = arg;
-        print(" val: %s", pch);
-        break;
-      case CLI_VOUT:
-        if (arg > 10.0)
-          arg = 10.0;
-        if (arg < 0.0)
-          arg = 0.0;
-        targetDac = (arg / 10.0) * MAXADC;
-        print(" arg: %f dac: %d", arg, targetDac);
-        break;
-      case CLI_SIZE:
-        if (arg > 5000.0)
-          arg = 5000.0;
-        if (arg < 1.0)
-          arg = 1.0;
-        SAMPLES = arg;
-        break;
-      default:
-        break;
-      }
-    }
-
-    pch = strtok(NULL, " ");
-    arguments++;
-  }
+  millis /= 1000.0;
+  float tau = millis * (1.0 - 2.0 / 3.0);
+  releaseT = tau / (tau + 1.0 / SAMPLERATE) * UINT32_MAX;
+  log("Release: %f\n", millis);
 }
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+void noteOn()
 {
-  UartRXReady = SET;
+  xn = INT32_MAX;
+  running = 1;
+  a = attackT;
 }
 
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+void noteOff()
 {
-  UartTXReady = SET;
+  xn = 0;
+  running = 1;
+  a = releaseT;
 }
+
 /* USER CODE END 4 */
 
 /**
