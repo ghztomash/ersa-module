@@ -95,6 +95,7 @@ uint16_t targetDac;
 char uartMessage[255];
 
 volatile uint32_t printTime = 0;
+volatile uint32_t EOC_Time = 0;
 
 // Callibration Defines
 const int ADC_RESOLUTION = 12;
@@ -222,6 +223,15 @@ int main(void)
     read_Switch();
     attack_Time(read_ADC_Normalized(ADC_ATTACK_POT) * 1000.0);
     release_Time(read_ADC_Normalized(ADC_RELEASE_POT) * 1000.0);
+
+    if (HAL_GetTick() - EOC_Time > 10)
+    {
+      HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(EOC_GPIO_Port, EOC_Pin, GPIO_PIN_SET);
+    }
+
+    log("dac: %ld\n", targetDac);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -794,16 +804,24 @@ void update()
 
   uint32_t yn;
 
-  if (!running)
+  if (running)
   {
     if (yn1 == 0)
     {
       running = 0;
+      //log("Reached MIN\n");
+      //HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, GPIO_PIN_SET);
+      //HAL_GPIO_WritePin(EOC_GPIO_Port, EOC_Pin, GPIO_PIN_RESET);
+      //EOC_Time = HAL_GetTick();
       //return;
     }
-    else if (yn1 == INT32_MAX)
+    else if (yn1 >= INT32_MAX - 255)
     {
       running = 0;
+      //log("Reached MAX\n");
+      //HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, GPIO_PIN_SET);
+      //HAL_GPIO_WritePin(EOC_GPIO_Port, EOC_Pin, GPIO_PIN_RESET);
+      //EOC_Time = HAL_GetTick();
       //return;
     }
   }
@@ -817,6 +835,20 @@ void update()
   {
     running = 0;
   }
+
+  //if (running)
+  //{
+  if (yn > xn)
+  {
+    //log("Falling")
+    if (targetDac <= 255)
+    {
+      HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(EOC_GPIO_Port, EOC_Pin, GPIO_PIN_RESET);
+      EOC_Time = HAL_GetTick();
+    }
+  }
+  //}
 
   dacValue[0] = targetDac;
   //HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_RESET);
@@ -834,7 +866,7 @@ void triggerHandler(GPIO_PinState state)
   {
     noteOff();
   }
-  HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
+  //HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
 }
 
 // hold input callback handler
@@ -974,7 +1006,7 @@ void attack_Time(float millis)
   millis /= 1000.0;
   float tau = millis * (1.0 - 2.0 / 3.0);
   attackT = tau / (tau + 1.0 / SAMPLERATE) * UINT32_MAX;
-  log("Attack: %f\n", millis);
+  //log("Attack: %f\n", millis);
 }
 
 void release_Time(float millis)
@@ -982,7 +1014,7 @@ void release_Time(float millis)
   millis /= 1000.0;
   float tau = millis * (1.0 - 2.0 / 3.0);
   releaseT = tau / (tau + 1.0 / SAMPLERATE) * UINT32_MAX;
-  log("Release: %f\n", millis);
+  //log("Release: %f\n", millis);
 }
 
 void noteOn()
