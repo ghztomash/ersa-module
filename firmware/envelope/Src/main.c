@@ -96,6 +96,8 @@ char uartMessage[255];
 
 volatile uint32_t printTime = 0;
 volatile uint32_t EOC_Time = 0;
+uint8_t TRIGGER_HOLD = 1;
+uint8_t RANDOM = 1;
 
 // Callibration Defines
 const int ADC_RESOLUTION = 12;
@@ -115,9 +117,12 @@ float attack = 0.0;
 float attack_controls = 0.0;
 float release = 0.0;
 float release_controls = 0.0;
+float shape = 0.0;
+float randomA = 0.0;
+float randomR = 0.0;
 
 float SAMPLERATE = 0;
-const uint32_t TARGET_OFFSET = 255;
+const uint32_t TARGET_OFFSET = 127;
 volatile uint8_t running;
 volatile uint32_t attackT;
 volatile uint32_t releaseT;
@@ -229,17 +234,19 @@ int main(void)
   {
     read_Switch();
 
-    attack = read_ADC_Normalized(ADC_ATTACK_POT) + read_ADC_Normalized(ADC_ATTACK_CV);
+    attack = read_ADC_Normalized(ADC_ATTACK_POT) + read_ADC_Normalized(ADC_ATTACK_CV) + randomA;
     if (attack < 0.0)
       attack = 0.0;
     if (attack > 1.0)
       attack = 1.0;
 
-    release = read_ADC_Normalized(ADC_RELEASE_POT) + read_ADC_Normalized(ADC_RELEASE_CV);
+    release = read_ADC_Normalized(ADC_RELEASE_POT) + read_ADC_Normalized(ADC_RELEASE_CV) + randomR;
     if (release < 0.0)
       release = 0.0;
     if (release > 1.0)
       release = 1.0;
+
+    shape = read_ADC_Normalized(ADC_SHAPE_Pot); // + read_ADC_Normalized(ADC_SHAPE_CV);
 
     attack_controls = pow(2.0, attack * 10.0 - 10.0) * 10000.0 - 3.0;
     release_controls = pow(2.0, release * 10.0 - 10.0) * 10000.0 - 3.0;
@@ -865,6 +872,7 @@ void update()
       running = 0;
       //log("Reached MAX\n");
       //if (cycle_state)
+      if ((!TRIGGER_HOLD) || (cycle_state))
       {
         noteOff();
       }
@@ -889,7 +897,10 @@ void triggerHandler(GPIO_PinState state)
   }
   else
   {
-    //noteOff();
+    if (TRIGGER_HOLD)
+    {
+      noteOff();
+    }
   }
   //HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, state);
 }
@@ -1045,6 +1056,13 @@ void release_Time(float millis)
 
 void noteOn()
 {
+  if (RANDOM)
+  {
+    randomA = ((random() % 1000) * shape) / 1000.0;
+    randomR = ((random() % 1000) * shape) / 1000.0;
+    log("Random: %f", randomA);
+  }
+
   xn = INT32_MAX;
   running = 1;
   a = attackT;
