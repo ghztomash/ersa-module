@@ -111,6 +111,11 @@ int16_t adcOffset[7] = {0}; // offset table;
 
 uint8_t cycle_state = 0;
 
+float attack = 0.0;
+float attack_controls = 0.0;
+float release = 0.0;
+float release_controls = 0.0;
+
 float SAMPLERATE = 0;
 const uint32_t TARGET_OFFSET = 255;
 volatile uint8_t running;
@@ -136,7 +141,6 @@ static void MX_USART1_UART_Init(void);
 static void LED_introSequence(void);
 static GPIO_PinState read_Switch(void);
 static void setPWM(uint8_t);
-static void moveCursor(uint8_t, uint8_t);
 
 static uint16_t read_ADC_Raw(ADC_Inputs);
 static float read_ADC_Normalized(ADC_Inputs);
@@ -206,6 +210,7 @@ int main(void)
   HAL_ADC_Start_DMA(&hadc1, (uint32_t *)adcValues, 7);
   HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *)dacValue, 1, DAC_ALIGN_12B_R);
 
+  load_Calibration();
   LED_introSequence();
   outLedVal = 0;
 
@@ -223,8 +228,23 @@ int main(void)
   while (1)
   {
     read_Switch();
-    attack_Time( pow(2.0, read_ADC_Normalized(ADC_ATTACK_POT)*10.0-10.0) * 4000.0);
-    release_Time( pow(2.0, read_ADC_Normalized(ADC_RELEASE_POT)*10.0-10.0) * 4000.0);
+
+    attack = read_ADC_Normalized(ADC_ATTACK_POT) + read_ADC_Normalized(ADC_ATTACK_CV);
+    if (attack < 0.0)
+      attack = 0.0;
+    if (attack > 1.0)
+      attack = 1.0;
+
+    release = read_ADC_Normalized(ADC_RELEASE_POT) + read_ADC_Normalized(ADC_RELEASE_CV);
+    if (release < 0.0)
+      release = 0.0;
+    if (release > 1.0)
+      release = 1.0;
+
+    attack_controls = pow(2.0, attack * 10.0 - 10.0) * 10000.0 - 3.0;
+    release_controls = pow(2.0, release * 10.0 - 10.0) * 10000.0 - 3.0;
+    attack_Time(attack_controls);
+    release_Time(release_controls);
 
     if (HAL_GetTick() - EOC_Time > 10)
     {
@@ -816,8 +836,8 @@ void update()
 {
   //HAL_GPIO_WritePin(HOLD_LED_GPIO_Port, HOLD_LED_Pin, GPIO_PIN_SET);
 
-  uint32_t yn;
-  if (holdState == RESET)
+  uint32_t yn = 0;
+  if (holdState == GPIO_PIN_RESET)
   {
     yn = (yn1 * (uint64_t)a >> 32) + (xn * (uint64_t)(UINT32_MAX - a) >> 32);
     yn1 = yn;
@@ -863,7 +883,7 @@ void update()
 void triggerHandler(GPIO_PinState state)
 {
   triggerState = state;
-  if (state == SET)
+  if (state == GPIO_PIN_SET)
   {
     noteOn();
   }
@@ -987,6 +1007,7 @@ void load_Calibration(void)
       address += 8;
     }
     dacCalibration = (int32_t)Read_Flash(address);
+    log("Callibration Loaded");
   }
   else
   {
@@ -1027,6 +1048,8 @@ void noteOn()
   xn = INT32_MAX;
   running = 1;
   a = attackT;
+
+  log("Note On: Attack: %f %f %d\n", attack_controls, read_ADC_Normalized(ADC_ATTACK_CV), adcCalibration[ADC_ATTACK_CV]);
 }
 
 void noteOff()
@@ -1034,6 +1057,8 @@ void noteOff()
   xn = 0;
   running = 1;
   a = releaseT;
+
+  //log("Note Off: Release: %f\n", release);
 }
 
 /* USER CODE END 4 */
