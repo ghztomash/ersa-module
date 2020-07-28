@@ -42,6 +42,8 @@ enum CLI_COMMAND
   CLI_LOAD,
   CLI_SIZE,
   CLI_RESET,
+  CLI_RANDOM,
+  CLI_TRIG,
   CLI_HELP
 };
 /* USER CODE END PTD */
@@ -97,6 +99,10 @@ char inString[32];
 volatile char uartRXBuffer[10];
 
 volatile uint32_t printTime = 0;
+
+// Envelope Configuration
+uint8_t TRIGGER_HOLD = 0;
+uint8_t RANDOM = 0;
 
 // Callibration Defines
 const int ADC_RESOLUTION = 12;
@@ -226,10 +232,10 @@ int main(void)
       print("\033[?6h \033[H"); // [2J clear entire screen
       print("flash: %lx\n", Read_Flash(0x08010000));
       printcl("LED: %d\n", outLedVal); // [2J clear entire screen
-      printcl("DAC: %d \t OFF: %d \t", dacValue[0], dacCalibration);
+      printcl("DAC: %d  \t OFF: %d \t", dacValue[0], dacCalibration);
       print("RATE: %f\n", SAMPLERATE);
-      print("TRIG: %d\n", triggerState);
-      print("HOLD: %d\n", holdState);
+      print("TRIG: %d \t TRIG-HOLD: %d \n", triggerState, TRIGGER_HOLD);
+      print("HOLD: %d \t RANDOM: %d\n", holdState, RANDOM);
       print("CYCLE: %d\n", switchState);
 
       int tab = 3;
@@ -372,7 +378,7 @@ int main(void)
       moveCursor(17, tab + 32);
       print("%d", avrPPN);
 
-      print("\n %.2f \t\t %.2f", read_ADC_Voltage(ADC_ATTACK_POT), read_ADC_Voltage(ADC_ATTACK_CV));
+      printcl("\n\n pot: %.2f \t\t cv: %f \t\t norm: %f \t\t cal: %d", read_ADC_Voltage(ADC_ATTACK_POT), read_ADC_Voltage(ADC_ATTACK_CV), read_ADC_Normalized(ADC_ATTACK_CV), adcCalibration[ADC_ATTACK_CV]);
     }
 
     read_User_Input();
@@ -1070,6 +1076,10 @@ void load_Calibration(void)
       address += 8;
     }
     dacCalibration = (int32_t)Read_Flash(address);
+    address += 8;
+    TRIGGER_HOLD = (uint8_t)Read_Flash(address);
+    address += 8;
+    RANDOM = (uint8_t)Read_Flash(address);
   }
   else
   {
@@ -1079,14 +1089,16 @@ void load_Calibration(void)
 
 void save_Calibration(void)
 {
-  uint32_t flashData[9] = {0};
+  uint32_t flashData[11] = {0};
   flashData[0] = 0xDEAD;
   for (int i = 0; i < 7; i++)
   {
     flashData[i + 1] = adcCalibration[i];
   }
   flashData[8] = dacCalibration;
-  Write_Flash(FLASH_USER_ADDR, flashData, 9);
+  flashData[9] = TRIGGER_HOLD;
+  flashData[10] = RANDOM;
+  Write_Flash(FLASH_USER_ADDR, flashData, 11);
 }
 
 void read_User_Input()
@@ -1196,15 +1208,25 @@ void parse_Command()
           adcCalibration[i] = 0;
         }
         dacCalibration = 0;
+        TRIGGER_HOLD = 0;
+        RANDOM = 0;
       }
-      else if (strncmp(pch, "size", 3) == 0)
+      else if (strncmp(pch, "size", 4) == 0)
       {
         printcl(" %s", pch);
         command = CLI_SIZE;
+      }else if (strncmp(pch, "rand", 4) == 0)
+      {
+        printcl(" %s", pch);
+        command = CLI_RANDOM;
+      }else if (strncmp(pch, "trig", 4) == 0)
+      {
+        printcl(" %s", pch);
+        command = CLI_TRIG;
       }
       else if (strncmp(pch, "help", 4) == 0)
       {
-        printcl(" commands: ref {num}, dac {num}, vout {num}, cal, load, save, reset, size {num}, help");
+        printcl(" commands: ref {num}, dac {num}, vout {num}, cal, load, save, reset, size {num}, rand {bit}, trig {bit} help");
         command = CLI_HELP;
       }
       else
@@ -1250,6 +1272,20 @@ void parse_Command()
         if (arg < 1.0)
           arg = 1.0;
         SAMPLES = arg;
+        break;
+      case CLI_TRIG:
+        if (arg > 1.0)
+          arg = 1.0;
+        if (arg < 0.0)
+          arg = 0.0;
+        TRIGGER_HOLD = arg;
+        break;
+      case CLI_RANDOM:
+        if (arg > 1.0)
+          arg = 1.0;
+        if (arg < 0.0)
+          arg = 0.0;
+        RANDOM = arg;
         break;
       default:
         break;
