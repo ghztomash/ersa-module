@@ -96,8 +96,10 @@ char uartMessage[255];
 
 volatile uint32_t printTime = 0;
 volatile uint32_t EOC_Time = 0;
-uint8_t TRIGGER_HOLD = 1;
-uint8_t RANDOM = 1;
+uint8_t TRIGGER_HOLD = 0;
+uint8_t RETRIGGER = 0;
+uint8_t RANDOM = 2;
+uint8_t CYCLE_START = 0;
 
 // Callibration Defines
 const int ADC_RESOLUTION = 12;
@@ -226,6 +228,12 @@ int main(void)
   release_Time(0.0);
   running = 0;
 
+  cycle_state = CYCLE_START;
+      HAL_GPIO_WritePin(CYC_LED_GPIO_Port, CYC_LED_Pin, cycle_state);
+      if (cycle_state)
+      {
+        noteOn();
+      }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -235,21 +243,25 @@ int main(void)
     read_Switch();
 
     attack = read_ADC_Normalized(ADC_ATTACK_POT) + read_ADC_Normalized(ADC_ATTACK_CV) + randomA;
-    if (attack < 0.0)
+    if (attack < 0.0008)
       attack = 0.0;
     if (attack > 1.0)
       attack = 1.0;
 
     release = read_ADC_Normalized(ADC_RELEASE_POT) + read_ADC_Normalized(ADC_RELEASE_CV) + randomR;
-    if (release < 0.0)
+    if (release < 0.0008)
       release = 0.0;
     if (release > 1.0)
       release = 1.0;
 
-    shape = read_ADC_Normalized(ADC_SHAPE_Pot); // + read_ADC_Normalized(ADC_SHAPE_CV);
+    shape = read_ADC_Normalized(ADC_SHAPE_Pot) + read_ADC_Normalized(ADC_SHAPE_CV);
+    if (shape < 0.0008)
+      shape = 0.0;
+    if (shape > 1.0)
+      shape = 1.0;
 
-    attack_controls = pow(2.0, attack * 10.0 - 10.0) * 10000.0 - 3.0;
-    release_controls = pow(2.0, release * 10.0 - 10.0) * 10000.0 - 3.0;
+    attack_controls = pow(2.0, attack * 10.0 - 10.0) * 10000.0 - 9.76;
+    release_controls = pow(2.0, release * 10.0 - 10.0) * 10000.0 - 0.0;
     attack_Time(attack_controls);
     release_Time(release_controls);
 
@@ -1018,7 +1030,11 @@ void load_Calibration(void)
       address += 8;
     }
     dacCalibration = (int32_t)Read_Flash(address);
-    log("Callibration Loaded");
+    address += 8;
+    //TRIGGER_HOLD = (uint8_t)Read_Flash(address);
+    address += 8;
+    //RANDOM = (uint8_t)Read_Flash(address);
+    // TODO: Add startup Cycle state
   }
   else
   {
@@ -1028,14 +1044,16 @@ void load_Calibration(void)
 
 void save_Calibration(void)
 {
-  uint32_t flashData[9] = {0};
+  uint32_t flashData[11] = {0};
   flashData[0] = 0xDEAD;
   for (int i = 0; i < 7; i++)
   {
     flashData[i + 1] = adcCalibration[i];
   }
   flashData[8] = dacCalibration;
-  Write_Flash(FLASH_USER_ADDR, flashData, 9);
+  flashData[9] = TRIGGER_HOLD;
+  flashData[10] = RANDOM;
+  Write_Flash(FLASH_USER_ADDR, flashData, 11);
 }
 
 void attack_Time(float millis)
@@ -1056,18 +1074,22 @@ void release_Time(float millis)
 
 void noteOn()
 {
-  if (RANDOM)
+  if (RANDOM & 1 ) // Attack Random
   {
     randomA = ((random() % 1000) * shape) / 1000.0;
+    //log("Shape: %f Random A: %f", shape, randomA);
+  }
+  if ((RANDOM  >> 1) & 1) // Release Random
+  {
     randomR = ((random() % 1000) * shape) / 1000.0;
-    log("Random: %f", randomA);
+    //log("Shape: %f Random R: %f", shape, randomR);
   }
 
   xn = INT32_MAX;
   running = 1;
   a = attackT;
 
-  log("Note On: Attack: %f %f %d\n", attack_controls, read_ADC_Normalized(ADC_ATTACK_CV), adcCalibration[ADC_ATTACK_CV]);
+  //log("Note On: Attack: %f %f %f %d\n", attack_controls, read_ADC_Normalized(ADC_ATTACK_CV), read_ADC_Normalized(ADC_ATTACK_POT), adcCalibration[ADC_ATTACK_CV]);
 }
 
 void noteOff()

@@ -199,7 +199,7 @@ int main(void)
 
   inString[0] = '\0';
 
-  SAMPLERATE = HAL_RCC_GetHCLKFreq() / (float) htim2.Init.Period;
+  SAMPLERATE = HAL_RCC_GetHCLKFreq() / (float)htim2.Init.Period;
 
   HAL_DAC_Init(&hdac1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
@@ -1215,11 +1215,13 @@ void parse_Command()
       {
         printcl(" %s", pch);
         command = CLI_SIZE;
-      }else if (strncmp(pch, "rand", 4) == 0)
+      }
+      else if (strncmp(pch, "rand", 4) == 0)
       {
         printcl(" %s", pch);
         command = CLI_RANDOM;
-      }else if (strncmp(pch, "trig", 4) == 0)
+      }
+      else if (strncmp(pch, "trig", 4) == 0)
       {
         printcl(" %s", pch);
         command = CLI_TRIG;
