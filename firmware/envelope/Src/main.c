@@ -97,7 +97,7 @@ char uartMessage[255];
 volatile uint32_t printTime = 0;
 volatile uint32_t EOC_Time = 0;
 uint8_t TRIGGER_HOLD = 0;
-uint8_t RETRIGGER = 0;
+uint8_t RETRIGGER = 1;
 uint8_t RANDOM = 2;
 uint8_t CYCLE_START = 0;
 
@@ -229,11 +229,11 @@ int main(void)
   running = 0;
 
   cycle_state = CYCLE_START;
-      HAL_GPIO_WritePin(CYC_LED_GPIO_Port, CYC_LED_Pin, cycle_state);
-      if (cycle_state)
-      {
-        noteOn();
-      }
+  HAL_GPIO_WritePin(CYC_LED_GPIO_Port, CYC_LED_Pin, cycle_state);
+  if (cycle_state)
+  {
+    noteOn();
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -1034,7 +1034,10 @@ void load_Calibration(void)
     //TRIGGER_HOLD = (uint8_t)Read_Flash(address);
     address += 8;
     //RANDOM = (uint8_t)Read_Flash(address);
-    // TODO: Add startup Cycle state
+    address += 8;
+    //CYCLE_START = (uint8_t)Read_Flash(address);
+    address += 8;
+    //RETRIGGER = (uint8_t)Read_Flash(address);
   }
   else
   {
@@ -1074,20 +1077,22 @@ void release_Time(float millis)
 
 void noteOn()
 {
-  if (RANDOM & 1 ) // Attack Random
+  if (RANDOM & 1) // Attack Random
   {
     randomA = ((random() % 1000) * shape) / 1000.0;
     //log("Shape: %f Random A: %f", shape, randomA);
   }
-  if ((RANDOM  >> 1) & 1) // Release Random
+  if ((RANDOM >> 1) & 1) // Release Random
   {
     randomR = ((random() % 1000) * shape) / 1000.0;
     //log("Shape: %f Random R: %f", shape, randomR);
   }
-
-  xn = INT32_MAX;
-  running = 1;
-  a = attackT;
+  if ((RETRIGGER == 0) || ((RETRIGGER == 1) && (running == 0)))
+  {
+    xn = INT32_MAX;
+    running = 1;
+    a = attackT;
+  }
 
   //log("Note On: Attack: %f %f %f %d\n", attack_controls, read_ADC_Normalized(ADC_ATTACK_CV), read_ADC_Normalized(ADC_ATTACK_POT), adcCalibration[ADC_ATTACK_CV]);
 }
