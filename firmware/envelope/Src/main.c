@@ -97,7 +97,7 @@ char uartMessage[255];
 volatile uint32_t printTime = 0;
 volatile uint32_t EOC_Time = 0;
 uint8_t TRIGGER_HOLD = 0;
-uint8_t RETRIGGER = 1;
+uint8_t RETRIGGER = 0;
 uint8_t RANDOM = 2;
 uint8_t CYCLE_START = 0;
 
@@ -1087,7 +1087,7 @@ void noteOn()
     randomR = ((random() % 1000) * shape) / 1000.0;
     //log("Shape: %f Random R: %f", shape, randomR);
   }
-  if ((RETRIGGER == 0) || ((RETRIGGER == 1) && (running == 0)))
+  if ((RETRIGGER == 1) || ((RETRIGGER == 0) && (running == 0)))
   {
     xn = INT32_MAX;
     running = 1;
