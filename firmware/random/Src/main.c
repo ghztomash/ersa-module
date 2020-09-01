@@ -95,7 +95,7 @@ uint16_t targetDac;
 char uartMessage[255];
 
 volatile uint32_t printTime = 0;
-volatile uint32_t EOC_Time = 0;
+volatile uint32_t trig_Time = 0;
 uint8_t TRIGGER_HOLD = 0;
 uint8_t RETRIGGER = 0;
 uint8_t RANDOM = 2;
@@ -113,7 +113,9 @@ int16_t adcCalibration[7] = {0}; // calibration table;
 int16_t dacCalibration = 0;
 int16_t adcOffset[7] = {0}; // offset table;
 
-int16_t sequence[8] = {0};
+#define SEQUENCE_SIZE 16
+int16_t sequence[SEQUENCE_SIZE] = {0};
+uint8_t triggerSequence[SEQUENCE_SIZE] = {0};
 uint8_t currentStep = 0;
 
 float chance = 0.0;
@@ -211,8 +213,11 @@ int main(void)
   LED_introSequence();
   outLedVal = 0;
 
-  for (int i = 0; i < 8; i++){
+  srand(read_ADC_Raw(ADC_IN_CV) + read_ADC_Raw(ADC_ATTACK_POT));
+  for (int i = 0; i < SEQUENCE_SIZE; i++)
+  {
     sequence[i] = rand() % MAXADC;
+    triggerSequence[i] = rand() % 2;
   }
 
   /* USER CODE END 2 */
@@ -244,6 +249,12 @@ int main(void)
     //attack_controls = pow(2.0, attack * 10.0 - 10.0) * 10000.0 - 9.76;
     //release_controls = pow(2.0, release * 10.0 - 10.0) * 10000.0 - 0.0;
     /* USER CODE END WHILE */
+
+    if (HAL_GetTick() - trig_Time > 10)
+    {
+      HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(EOC_GPIO_Port, EOC_Pin, GPIO_PIN_SET);
+    }
 
     /* USER CODE BEGIN 3 */
     outLedVal = targetDac >> 4;
@@ -826,15 +837,30 @@ void triggerHandler(GPIO_PinState state)
   if (state == GPIO_PIN_SET)
   {
     currentStep++;
-    if(currentStep >= 8){
+    if (currentStep >= SEQUENCE_SIZE)
+    {
       currentStep = 0;
     }
-    if (rand()% 100 >= (int)(chance * 120.0)){
+
+    if (rand() % 100 >= (int)(chance * 120.0))
+    {
       log("New Value");
       sequence[currentStep] = rand() % MAXADC;
+      triggerSequence[currentStep] = rand() % 2;
     }
     //targetDac = (rand() % MAXADC) * range + (offset * MAXADC/2);
-    targetDac = sequence[currentStep] * range + (offset * MAXADC/2);
+    targetDac = sequence[currentStep] * range + (offset * MAXADC / 2);
+    if (triggerSequence[currentStep] == 1)
+    {
+      HAL_GPIO_WritePin(EOC_GPIO_Port, EOC_Pin, GPIO_PIN_RESET);
+      HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, GPIO_PIN_SET);
+      trig_Time = HAL_GetTick();
+    }
+    else
+    {
+      HAL_GPIO_WritePin(EOC_GPIO_Port, EOC_Pin, GPIO_PIN_SET);
+      HAL_GPIO_WritePin(EOC_LED_GPIO_Port, EOC_LED_Pin, GPIO_PIN_RESET);
+    }
     log("Trigger! dac: %d", targetDac);
   }
 }
